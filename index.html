@@ -70,13 +70,14 @@
     #activeArea { display:none; }
 
     /* ── ADD MORE FILES BAR ── */
-    .add-more-bar { padding:12px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; }
+    /* Tab-style "Add More Files" — matches freeconvert */
+    .files-header { padding:0 0 0 16px; border-bottom:1px solid var(--border); display:flex; align-items:flex-end; min-height:50px; background:#fff; }
     input#fileInputMore { display:none; }
-    .btn-add-more { display:flex; align-items:stretch; background:#fff; border:1.5px solid #c7d2fe; border-radius:8px; cursor:pointer; overflow:hidden; transition:border-color .15s; font-family:inherit; }
-    .btn-add-more:hover { border-color:var(--indigo); }
-    .btn-add-main { display:flex; align-items:center; gap:8px; padding:8px 14px; color:var(--indigo); font-size:14px; font-weight:600; background:none; border:none; cursor:pointer; }
+    .add-more-tab { display:inline-flex; align-items:stretch; background:#f3f3fb; border:1px solid #d0d0ec; border-bottom:none; border-radius:8px 8px 0 0; overflow:hidden; position:relative; bottom:-1px; transition:background .15s; }
+    .add-more-tab:hover { background:#eaeaf8; }
+    .btn-add-main { display:flex; align-items:center; gap:8px; padding:11px 15px; color:var(--indigo); font-size:14px; font-weight:600; background:none; border:none; cursor:pointer; font-family:inherit; white-space:nowrap; }
     .btn-add-main svg { flex-shrink:0; }
-    .btn-add-chevron { display:flex; align-items:center; padding:8px 10px; border-left:1.5px solid #c7d2fe; color:var(--indigo); background:none; border-top:none; border-right:none; border-bottom:none; cursor:pointer; font-size:12px; }
+    .btn-add-chevron { display:flex; align-items:center; padding:11px 11px; border-left:1px solid #d0d0ec; color:var(--indigo); background:none; border-top:none; border-right:none; border-bottom:none; cursor:pointer; font-size:13px; font-family:inherit; }
 
     /* ── FILE LIST ── */
     #fileList { }
@@ -99,7 +100,8 @@
     .output-badge { display:flex; align-items:center; gap:6px; border:1.5px solid #c7d2fe; border-radius:6px; padding:5px 11px; font-size:13px; font-weight:700; color:var(--indigo); white-space:nowrap; }
     .output-badge .out-label { font-weight:400; color:var(--muted); font-size:12px; margin-right:2px; }
 
-    .fr-icon-btn { width:32px; height:32px; border-radius:50%; border:1.5px solid var(--border); background:#fff; display:grid; place-items:center; cursor:pointer; color:var(--muted); font-size:14px; transition:all .15s; flex-shrink:0; }
+    .fr-icon-btn { width:32px; height:32px; border-radius:50%; border:1.5px solid var(--border); background:#fff; display:grid; place-items:center; cursor:pointer; color:#94a3b8; font-size:13px; transition:all .15s; flex-shrink:0; }
+    .fr-icon-btn.sq { border-radius:8px; }
     .fr-icon-btn:hover { border-color:#94a3b8; color:var(--text); }
     .fr-icon-btn.remove:hover { border-color:#fca5a5; color:var(--red); background:#fef2f2; }
 
@@ -247,10 +249,10 @@
     <!-- Active area (files present) -->
     <div id="activeArea">
 
-      <!-- "Add More Files" bar -->
-      <div class="add-more-bar">
+      <!-- "Add More Files" tab -->
+      <div class="files-header">
         <input type="file" id="fileInputMore" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.html,.htm" />
-        <div class="btn-add-more">
+        <div class="add-more-tab">
           <button class="btn-add-main" type="button"
                   onclick="document.getElementById('fileInputMore').click()">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -260,7 +262,7 @@
             Add More Files
           </button>
           <button class="btn-add-chevron" type="button"
-                  onclick="document.getElementById('fileInputMore').click()">▾</button>
+                  onclick="document.getElementById('fileInputMore').click()">∨</button>
         </div>
       </div>
 
@@ -484,7 +486,6 @@ function renderRow(id) {
     <div class="file-row" id="fr-${id}">
       <div class="file-row-inner">
         <div class="fr-left">
-          <div class="file-ext-badge ext-${ext}">${ext}</div>
           <div>
             <div class="fr-name" title="${esc(file.name)}">${esc(file.name)}</div>
             <div class="fr-meta ${metaCls}">${metaTxt}</div>
@@ -492,7 +493,8 @@ function renderRow(id) {
         </div>
         <div class="fr-right">
           ${rightContent}
-          <button class="fr-icon-btn" onclick="openOptions()" title="Options">⚙</button>
+          <button class="fr-icon-btn sq" onclick="openOptions()" title="Options">⚙</button>
+          <button class="fr-icon-btn sq" onclick="previewMd(${id})" title="Preview markdown">&#60;/&#62;</button>
           <button class="fr-icon-btn remove" onclick="removeFile(${id})" title="Remove">✕</button>
         </div>
       </div>
@@ -890,6 +892,34 @@ function dl(blob, name) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+
+// ── Markdown Preview modal ────────────────────────────────
+function previewMd(id) {
+  const entry = fileMap.get(id);
+  if (!entry || !entry.md) {
+    alert('Convert the file first to preview the Markdown output.');
+    return;
+  }
+  let modal = document.getElementById('mdPreviewModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'mdPreviewModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    modal.innerHTML = `
+      <div style="background:#1e1e2e;border-radius:12px;width:100%;max-width:760px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #333;background:#16162a">
+          <span style="color:#e2e8f0;font-weight:700;font-size:14px" id="mdPreviewTitle"></span>
+          <button onclick="document.getElementById('mdPreviewModal').remove()" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;line-height:1">✕</button>
+        </div>
+        <pre id="mdPreviewContent" style="margin:0;padding:20px;overflow:auto;font-family:'Fira Code',Consolas,monospace;font-size:13px;line-height:1.6;color:#a9b1d6;white-space:pre-wrap;word-break:break-word;flex:1"></pre>
+      </div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+  }
+  document.getElementById('mdPreviewTitle').textContent = entry.file.name.replace(/\.[^.]+$/, '') + '.md';
+  document.getElementById('mdPreviewContent').textContent = entry.md;
+  modal.style.display = 'flex';
 }
 
 // ── Utils ─────────────────────────────────────────────────
