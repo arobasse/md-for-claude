@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+  <title>MD for Claude – Convert Files to Markdown</title>
+
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- Mammoth (DOCX → HTML) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <!-- SheetJS (XLS/XLSX) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Turndown (HTML → MD) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/turndown/7.1.2/turndown.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:    #2563eb;
+      --blue-d:  #1d4ed8;
+      --blue-l:  #eff6ff;
+      --indigo:  #4f46e5;
+      --green:   #16a34a;
+      --red:     #dc2626;
+      --amber:   #d97706;
+      --bg:      #f1f5f9;
+      --card:    #ffffff;
+      --border:  #e2e8f0;
+      --text:    #1e293b;
+      --muted:   #64748b;
+      --radius:  12px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ──────────────────────────────────────────────── */
+    header {
+      background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #4f46e5 100%);
+      color: #fff;
+      padding: 0 24px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.25);
+    }
+    .header-inner {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      height: 62px;
+    }
+    .logo-icon {
+      width: 38px; height: 38px;
+      background: rgba(255,255,255,.18);
+      border-radius: 10px;
+      display: grid; place-items: center;
+      font-size: 20px; font-weight: 900;
+      letter-spacing: -1px;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .logo-text { font-size: 20px; font-weight: 700; letter-spacing: -.3px; }
+    .logo-sub  { font-size: 12px; opacity: .7; margin-top: 1px; }
+    .badge-ai  {
+      margin-left: auto;
+      background: rgba(255,255,255,.15);
+      border: 1px solid rgba(255,255,255,.3);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    /* ── HERO ────────────────────────────────────────────────── */
+    .hero {
+      background: linear-gradient(160deg, #1e3a8a 0%, #2563eb 55%, #4f46e5 100%);
+      color: #fff;
+      text-align: center;
+      padding: 48px 24px 80px;
+    }
+    .hero h1 {
+      font-size: clamp(24px, 5vw, 38px);
+      font-weight: 800;
+      letter-spacing: -.5px;
+      line-height: 1.15;
+    }
+    .hero p {
+      margin-top: 12px;
+      font-size: 16px;
+      opacity: .82;
+      max-width: 520px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.6;
+    }
+    .format-pills {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+    .pill {
+      background: rgba(255,255,255,.18);
+      border: 1px solid rgba(255,255,255,.3);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .pill-arrow { opacity: .6; font-size: 15px; align-self: center; }
+
+    /* ── MAIN CARD ───────────────────────────────────────────── */
+    .main {
+      max-width: 800px;
+      margin: -44px auto 48px;
+      padding: 0 16px;
+    }
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: 0 4px 32px rgba(0,0,0,.10);
+      overflow: hidden;
+    }
+
+    /* ── DROPZONE ────────────────────────────────────────────── */
+    .dropzone {
+      border: 2.5px dashed #c7d2fe;
+      border-radius: 10px;
+      margin: 28px;
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: background .2s, border-color .2s;
+      background: #f8faff;
+      position: relative;
+    }
+    .dropzone.dragover {
+      background: var(--blue-l);
+      border-color: var(--blue);
+    }
+    .dropzone input[type=file] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .dz-icon { font-size: 52px; line-height: 1; margin-bottom: 14px; }
+    .dz-title { font-size: 18px; font-weight: 700; color: var(--text); }
+    .dz-sub   { margin-top: 6px; color: var(--muted); font-size: 14px; }
+    .btn-choose {
+      margin-top: 20px;
+      display: inline-block;
+      background: var(--blue);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 11px 28px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s, transform .1s;
+    }
+    .btn-choose:hover { background: var(--blue-d); transform: translateY(-1px); }
+    .dz-formats {
+      margin-top: 14px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .dz-formats span { font-weight: 600; color: var(--blue); }
+
+    /* ── FILE LIST ───────────────────────────────────────────── */
+    #fileList { padding: 0 28px; }
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 10px;
+      background: #fafbfc;
+      transition: box-shadow .15s;
+    }
+    .file-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,.07); }
+    .file-ext {
+      width: 42px; height: 42px;
+      border-radius: 8px;
+      display: grid; place-items: center;
+      font-size: 11px; font-weight: 800;
+      letter-spacing: .3px;
+      flex-shrink: 0;
+      text-transform: uppercase;
+    }
+    .ext-pdf  { background: #fee2e2; color: #dc2626; }
+    .ext-docx { background: #dbeafe; color: #1d4ed8; }
+    .ext-doc  { background: #dbeafe; color: #1d4ed8; }
+    .ext-xls  { background: #dcfce7; color: #15803d; }
+    .ext-xlsx { background: #dcfce7; color: #15803d; }
+    .ext-txt  { background: #f3f4f6; color: #374151; }
+    .ext-html { background: #fff7ed; color: #c2410c; }
+    .ext-htm  { background: #fff7ed; color: #c2410c; }
+    .ext-other{ background: #f3f4f6; color: #6b7280; }
+    .file-info { flex: 1; min-width: 0; }
+    .file-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-size { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .file-status {
+      font-size: 12px; font-weight: 600;
+      padding: 3px 10px; border-radius: 20px;
+      white-space: nowrap;
+    }
+    .status-ready    { background: #eff6ff; color: var(--blue); }
+    .status-working  { background: #fef3c7; color: var(--amber); }
+    .status-done     { background: #dcfce7; color: var(--green); }
+    .status-error    { background: #fee2e2; color: var(--red); }
+    .btn-remove {
+      background: none; border: none; cursor: pointer;
+      color: #94a3b8; font-size: 18px; line-height: 1;
+      padding: 4px; border-radius: 4px;
+      transition: color .15s;
+    }
+    .btn-remove:hover { color: var(--red); }
+    .btn-dl {
+      background: var(--green); color: #fff; border: none;
+      border-radius: 6px; padding: 5px 12px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      transition: opacity .15s;
+      white-space: nowrap;
+    }
+    .btn-dl:hover { opacity: .85; }
+
+    /* ── ACTIONS ─────────────────────────────────────────────── */
+    #actions {
+      padding: 20px 28px 28px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      border-top: 1px solid var(--border);
+    }
+    #actions.hidden { display: none; }
+    .btn-convert {
+      background: linear-gradient(90deg, var(--blue) 0%, var(--indigo) 100%);
+      color: #fff; border: none; border-radius: 8px;
+      padding: 12px 32px; font-size: 15px; font-weight: 700;
+      cursor: pointer; transition: opacity .15s, transform .1s;
+      box-shadow: 0 2px 12px rgba(37,99,235,.35);
+    }
+    .btn-convert:hover { opacity: .9; transform: translateY(-1px); }
+    .btn-convert:disabled { opacity: .5; cursor: default; transform: none; }
+    .btn-dl-all {
+      background: var(--green); color: #fff; border: none;
+      border-radius: 8px; padding: 12px 24px;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      transition: opacity .15s; display: none;
+      box-shadow: 0 2px 12px rgba(22,163,74,.3);
+    }
+    .btn-dl-all:hover { opacity: .85; }
+    .btn-clear {
+      background: none; border: 1px solid var(--border); color: var(--muted);
+      border-radius: 8px; padding: 12px 18px;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      transition: border-color .15s;
+    }
+    .btn-clear:hover { border-color: #94a3b8; color: var(--text); }
+    #statusMsg { flex: 1; font-size: 13px; color: var(--muted); }
+
+    /* ── PROGRESS BAR ────────────────────────────────────────── */
+    .progress-wrap { display: none; width: 100%; height: 4px; background: var(--border); border-radius: 99px; overflow: hidden; margin-top: 8px; }
+    .progress-bar  { height: 100%; background: linear-gradient(90deg, var(--blue), var(--indigo)); border-radius: 99px; width: 0%; transition: width .3s; }
+
+    /* ── HOW IT WORKS ────────────────────────────────────────── */
+    .how-section {
+      max-width: 800px;
+      margin: 0 auto 48px;
+      padding: 0 16px;
+    }
+    .how-section h2 { font-size: 20px; font-weight: 700; margin-bottom: 20px; text-align: center; color: var(--text); }
+    .how-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+    }
+    .how-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 18px;
+      text-align: center;
+      box-shadow: 0 1px 6px rgba(0,0,0,.05);
+    }
+    .how-num {
+      width: 34px; height: 34px;
+      background: var(--blue-l);
+      color: var(--blue);
+      border-radius: 50%;
+      display: grid; place-items: center;
+      font-weight: 800; font-size: 15px;
+      margin: 0 auto 12px;
+    }
+    .how-card h3 { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+    .how-card p  { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+    /* ── FORMAT TABLE ────────────────────────────────────────── */
+    .formats-section {
+      max-width: 800px;
+      margin: 0 auto 64px;
+      padding: 0 16px;
+    }
+    .formats-section h2 { font-size: 20px; font-weight: 700; margin-bottom: 20px; text-align: center; }
+    .fmt-table {
+      width: 100%; border-collapse: collapse;
+      background: var(--card);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 1px 6px rgba(0,0,0,.06);
+    }
+    .fmt-table th {
+      background: var(--blue);
+      color: #fff;
+      text-align: left;
+      padding: 12px 18px;
+      font-size: 13px;
+    }
+    .fmt-table td { padding: 12px 18px; font-size: 13px; border-bottom: 1px solid var(--border); }
+    .fmt-table tr:last-child td { border-bottom: none; }
+    .fmt-table tr:nth-child(even) td { background: #f8fafc; }
+    .fmt-check { color: var(--green); font-size: 16px; }
+
+    /* ── FOOTER ──────────────────────────────────────────────── */
+    footer {
+      background: #1e293b;
+      color: #94a3b8;
+      text-align: center;
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    footer strong { color: #e2e8f0; }
+
+    /* ── EMPTY STATE ─────────────────────────────────────────── */
+    #emptyHint { color: var(--muted); font-size: 13px; text-align: center; padding: 4px 0 20px; display: none; }
+
+    @media (max-width: 540px) {
+      .dropzone { padding: 32px 16px; }
+      #actions { flex-wrap: wrap; }
+      .btn-convert, .btn-dl-all, .btn-clear { width: 100%; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════ HEADER -->
+<header>
+  <div class="header-inner">
+    <div class="logo-icon">MD</div>
+    <div>
+      <div class="logo-text">MD for Claude</div>
+      <div class="logo-sub">File → Markdown Converter</div>
+    </div>
+    <div class="badge-ai">🤖 Token-efficient for AI</div>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════ HERO -->
+<div class="hero">
+  <h1>Convert Your Files to Markdown<br>for Claude &amp; AI Assistants</h1>
+  <p>Upload PDF, Word, Excel, TXT, or HTML files — get clean, token-efficient Markdown ready to paste into any AI conversation.</p>
+  <div class="format-pills">
+    <span class="pill">PDF</span>
+    <span class="pill">DOCX</span>
+    <span class="pill">XLS / XLSX</span>
+    <span class="pill">TXT</span>
+    <span class="pill">HTML</span>
+    <span class="pill-arrow">→</span>
+    <span class="pill" style="background:rgba(255,255,255,.9);color:#2563eb;">.md</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ MAIN CARD -->
+<div class="main">
+  <div class="card">
+
+    <!-- Drop Zone -->
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" multiple
+             accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.html,.htm" />
+      <div class="dz-icon">📄</div>
+      <div class="dz-title">Drop files here or click to browse</div>
+      <div class="dz-sub">Drag &amp; drop any supported file</div>
+      <button class="btn-choose" onclick="document.getElementById('fileInput').click(); event.stopPropagation();">
+        Choose Files
+      </button>
+      <div class="dz-formats">
+        Supported: <span>PDF · DOCX · DOC · XLS · XLSX · TXT · HTML · HTM</span>
+      </div>
+    </div>
+
+    <!-- File List -->
+    <div id="fileList"></div>
+    <div id="emptyHint">Add files above to start converting.</div>
+
+    <!-- Actions Bar -->
+    <div id="actions" class="hidden">
+      <button class="btn-convert" id="btnConvert" onclick="convertAll()">
+        ⚡ Convert to Markdown
+      </button>
+      <button class="btn-dl-all" id="btnDlAll" onclick="downloadAll()">
+        ⬇ Download All
+      </button>
+      <button class="btn-clear" onclick="clearAll()">Clear</button>
+      <span id="statusMsg"></span>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ HOW IT WORKS -->
+<div class="how-section">
+  <h2>How It Works</h2>
+  <div class="how-grid">
+    <div class="how-card">
+      <div class="how-num">1</div>
+      <h3>Upload Files</h3>
+      <p>Drop one or more files onto the upload zone — PDF, Word, Excel, TXT, or HTML.</p>
+    </div>
+    <div class="how-card">
+      <div class="how-num">2</div>
+      <h3>Convert</h3>
+      <p>Click Convert. All processing happens in your browser — nothing is sent to a server.</p>
+    </div>
+    <div class="how-card">
+      <div class="how-num">3</div>
+      <h3>Download</h3>
+      <p>Download individual <code>.md</code> files or grab all at once as a ZIP.</p>
+    </div>
+    <div class="how-card">
+      <div class="how-num">4</div>
+      <h3>Paste into Claude</h3>
+      <p>Share the Markdown with Claude for faster, token-efficient AI conversations.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ FORMAT TABLE -->
+<div class="formats-section">
+  <h2>Supported Formats</h2>
+  <table class="fmt-table">
+    <thead>
+      <tr>
+        <th>Input Format</th>
+        <th>Extension</th>
+        <th>Conversion Engine</th>
+        <th>Preserves</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>PDF Document</td>
+        <td>.pdf</td>
+        <td>PDF.js (Mozilla)</td>
+        <td>Text, page structure</td>
+      </tr>
+      <tr>
+        <td>Word Document</td>
+        <td>.docx / .doc</td>
+        <td>Mammoth.js</td>
+        <td>Headings, bold, italic, lists, tables</td>
+      </tr>
+      <tr>
+        <td>Excel Spreadsheet</td>
+        <td>.xlsx / .xls</td>
+        <td>SheetJS</td>
+        <td>Tables, multiple sheets, cell values</td>
+      </tr>
+      <tr>
+        <td>Plain Text</td>
+        <td>.txt</td>
+        <td>Native (browser)</td>
+        <td>Full content as-is</td>
+      </tr>
+      <tr>
+        <td>HTML Page</td>
+        <td>.html / .htm</td>
+        <td>Turndown.js</td>
+        <td>Headings, links, lists, code, tables</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════ FOOTER -->
+<footer>
+  <strong>MD for Claude</strong> — All conversions happen locally in your browser. No files are uploaded to any server. &nbsp;·&nbsp; Private &amp; secure.
+</footer>
+
+<!-- ═══════════════════════════════════════════ SCRIPT -->
+<script>
+  // ── PDF.js worker ───────────────────────────────────────────
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  // ── State ───────────────────────────────────────────────────
+  const fileMap = new Map(); // id → { file, status, md }
+  let idCounter = 0;
+
+  // ── DOM refs ────────────────────────────────────────────────
+  const dropzone  = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const fileList  = document.getElementById('fileList');
+  const actions   = document.getElementById('actions');
+  const btnConvert= document.getElementById('btnConvert');
+  const btnDlAll  = document.getElementById('btnDlAll');
+  const statusMsg = document.getElementById('statusMsg');
+  const emptyHint = document.getElementById('emptyHint');
+
+  // ── Drag & Drop ─────────────────────────────────────────────
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    addFiles(e.dataTransfer.files);
+  });
+  fileInput.addEventListener('change', () => addFiles(fileInput.files));
+
+  // ── Add files ────────────────────────────────────────────────
+  function addFiles(files) {
+    for (const f of files) {
+      const ext = f.name.split('.').pop().toLowerCase();
+      const allowed = ['pdf','doc','docx','xls','xlsx','txt','html','htm'];
+      if (!allowed.includes(ext)) { alert(`Unsupported format: .${ext}`); continue; }
+      const id = ++idCounter;
+      fileMap.set(id, { file: f, ext, status: 'ready', md: null });
+      renderItem(id);
+    }
+    fileInput.value = '';
+    refresh();
+  }
+
+  // ── Render one file item ─────────────────────────────────────
+  function renderItem(id) {
+    const { file, ext, status, md } = fileMap.get(id);
+    const existing = document.getElementById(`fi-${id}`);
+    const size = formatSize(file.size);
+    const extClass = `ext-${ext}`;
+
+    const statusMap = {
+      ready:   ['status-ready',   'Ready'],
+      working: ['status-working', 'Converting…'],
+      done:    ['status-done',    'Done ✓'],
+      error:   ['status-error',   'Error'],
+    };
+    const [sc, sl] = statusMap[status];
+
+    const dlBtn = (status === 'done' && md)
+      ? `<button class="btn-dl" onclick="downloadOne(${id})">⬇ .md</button>`
+      : '';
+
+    const html = `
+      <div class="file-item" id="fi-${id}">
+        <div class="file-ext ${extClass}">${ext}</div>
+        <div class="file-info">
+          <div class="file-name" title="${esc(file.name)}">${esc(file.name)}</div>
+          <div class="file-size">${size}</div>
+        </div>
+        ${dlBtn}
+        <span class="file-status ${sc}">${sl}</span>
+        <button class="btn-remove" onclick="removeFile(${id})" title="Remove">×</button>
+      </div>`;
+
+    if (existing) {
+      existing.outerHTML = html;
+    } else {
+      fileList.insertAdjacentHTML('beforeend', html);
+    }
+  }
+
+  // ── Remove file ──────────────────────────────────────────────
+  function removeFile(id) {
+    fileMap.delete(id);
+    const el = document.getElementById(`fi-${id}`);
+    if (el) el.remove();
+    refresh();
+  }
+
+  // ── Clear all ────────────────────────────────────────────────
+  function clearAll() {
+    fileMap.clear();
+    fileList.innerHTML = '';
+    refresh();
+  }
+
+  // ── Refresh UI state ─────────────────────────────────────────
+  function refresh() {
+    const count = fileMap.size;
+    if (count === 0) {
+      actions.classList.add('hidden');
+      emptyHint.style.display = 'none';
+      return;
+    }
+    actions.classList.remove('hidden');
+    const allDone = [...fileMap.values()].every(f => f.status === 'done');
+    btnDlAll.style.display = allDone && count > 1 ? 'inline-block' : 'none';
+    const pending = [...fileMap.values()].filter(f => f.status === 'ready').length;
+    btnConvert.disabled = pending === 0;
+    statusMsg.textContent = `${count} file${count>1?'s':''} — ${pending} pending`;
+  }
+
+  // ── Convert all pending ──────────────────────────────────────
+  async function convertAll() {
+    btnConvert.disabled = true;
+    for (const [id, entry] of fileMap) {
+      if (entry.status !== 'ready') continue;
+      entry.status = 'working';
+      renderItem(id);
+      try {
+        entry.md = await convertFile(entry.file, entry.ext);
+        entry.status = 'done';
+      } catch(e) {
+        console.error(e);
+        entry.status = 'error';
+        entry.md = null;
+      }
+      renderItem(id);
+    }
+    refresh();
+  }
+
+  // ── Route to correct converter ───────────────────────────────
+  async function convertFile(file, ext) {
+    if (ext === 'pdf')               return convertPDF(file);
+    if (ext === 'docx' || ext==='doc') return convertDOCX(file);
+    if (ext === 'xlsx' || ext==='xls') return convertXLS(file);
+    if (ext === 'txt')               return convertTXT(file);
+    if (ext === 'html' || ext==='htm') return convertHTML(file);
+    throw new Error('Unsupported format');
+  }
+
+  // ── PDF ──────────────────────────────────────────────────────
+  async function convertPDF(file) {
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const name = file.name.replace(/\.pdf$/i, '');
+    let md = `# ${name}\n\n`;
+
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const tc   = await page.getTextContent();
+      let text = '';
+      let lastY = null;
+      for (const item of tc.items) {
+        if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) text += '\n';
+        text += item.str;
+        lastY = item.transform[5];
+      }
+      text = text.trim();
+      if (text) md += `## Page ${p}\n\n${text}\n\n`;
+    }
+    return md.trimEnd() + '\n';
+  }
+
+  // ── DOCX ─────────────────────────────────────────────────────
+  async function convertDOCX(file) {
+    const buf = await file.arrayBuffer();
+    const result = await mammoth.convertToHtml({ arrayBuffer: buf });
+    const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced', bulletListMarker: '-' });
+    td.addRule('strikethrough', {
+      filter: ['del', 's'],
+      replacement: c => `~~${c}~~`
+    });
+    return td.turndown(result.value);
+  }
+
+  // ── XLS / XLSX ───────────────────────────────────────────────
+  async function convertXLS(file) {
+    const buf = await file.arrayBuffer();
+    const wb  = XLSX.read(buf, { type: 'array' });
+    const name = file.name.replace(/\.(xlsx?)/i, '');
+    let md = `# ${name}\n\n`;
+
+    for (const sheetName of wb.SheetNames) {
+      const ws   = wb.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      if (!data.length) continue;
+
+      md += `## ${sheetName}\n\n`;
+      const cols = data.reduce((m, r) => Math.max(m, r.length), 0);
+      if (cols === 0) continue;
+
+      const headers = data[0];
+      const pad = (v, i) => String(v !== undefined && v !== null ? v : '');
+
+      // Header row
+      md += '| ' + Array.from({length: cols}, (_, i) => pad(headers[i] ?? `Col${i+1}`)).join(' | ') + ' |\n';
+      // Separator
+      md += '| ' + Array.from({length: cols}, () => '---').join(' | ') + ' |\n';
+      // Data rows
+      for (let r = 1; r < data.length; r++) {
+        const row = data[r];
+        md += '| ' + Array.from({length: cols}, (_, i) => String(row[i] ?? '').replace(/\|/g, '\\|')).join(' | ') + ' |\n';
+      }
+      md += '\n';
+    }
+    return md.trimEnd() + '\n';
+  }
+
+  // ── TXT ──────────────────────────────────────────────────────
+  async function convertTXT(file) {
+    const text = await file.text();
+    const name = file.name.replace(/\.txt$/i, '');
+    return `# ${name}\n\n${text.trimEnd()}\n`;
+  }
+
+  // ── HTML ─────────────────────────────────────────────────────
+  async function convertHTML(file) {
+    const html = await file.text();
+    const td = new TurndownService({
+      headingStyle: 'atx',
+      codeBlockStyle: 'fenced',
+      bulletListMarker: '-',
+    });
+    td.remove(['script','style','nav','footer','aside']);
+    return td.turndown(html);
+  }
+
+  // ── Download one ─────────────────────────────────────────────
+  function downloadOne(id) {
+    const { file, md } = fileMap.get(id);
+    if (!md) return;
+    const outName = file.name.replace(/\.[^.]+$/, '') + '.md';
+    triggerDownload(md, outName);
+  }
+
+  // ── Download all (ZIP via manual blob concat) ─────────────────
+  async function downloadAll() {
+    // Build a simple concatenated .md file if JSZip not available,
+    // otherwise try dynamic import of JSZip
+    try {
+      const JSZip = await loadJSZip();
+      const zip = new JSZip();
+      for (const [id, { file, md }] of fileMap) {
+        if (!md) continue;
+        zip.file(file.name.replace(/\.[^.]+$/, '') + '.md', md);
+      }
+      const blob = await zip.generateAsync({ type: 'blob' });
+      triggerDownloadBlob(blob, 'md-for-claude.zip');
+    } catch(e) {
+      // Fallback: single merged file
+      let merged = '';
+      for (const [, { file, md }] of fileMap) {
+        if (!md) continue;
+        merged += `\n\n---\n\n<!-- Source: ${file.name} -->\n\n${md}`;
+      }
+      triggerDownload(merged.trim(), 'md-for-claude.md');
+    }
+  }
+
+  function loadJSZip() {
+    return new Promise((resolve, reject) => {
+      if (window.JSZip) return resolve(window.JSZip);
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      s.onload = () => resolve(window.JSZip);
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+  function triggerDownload(text, filename) {
+    triggerDownloadBlob(new Blob([text], { type: 'text/markdown;charset=utf-8' }), filename);
+  }
+  function triggerDownloadBlob(blob, filename) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  }
+
+  // ── Utilities ────────────────────────────────────────────────
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+    return (bytes/1048576).toFixed(1) + ' MB';
+  }
+  function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+</body>
+</html>
