@@ -326,12 +326,22 @@
             <label class="opt-row">
               <input type="checkbox" id="opt-repeatHdr" onchange="syncOpts()" />
               <div><span class="opt-name">Remove repeated headers / footers <span class="opt-badge detected" id="badge-repeatHdr" style="display:none">Detected</span></span>
-              <span class="opt-desc">Strip document title and footer text that repeats on every page</span></div>
+              <span class="opt-desc">Strip document title and footer text that repeats on every page (also detects pattern-varied footers like "Page 1 ~ Site.com", "Page 2 ~ Site.com")</span></div>
             </label>
             <label class="opt-row">
               <input type="checkbox" id="opt-hyph" onchange="syncOpts()" />
               <div><span class="opt-name">Fix word hyphenation <span class="opt-badge detected" id="badge-hyph" style="display:none">Detected</span></span>
               <span class="opt-desc">Rejoin words split across lines (e.g. "impor-\ntant" → "important")</span></div>
+            </label>
+            <label class="opt-row">
+              <input type="checkbox" id="opt-letterSpacing" onchange="syncOpts()" />
+              <div><span class="opt-name">Fix letter-spaced text <span class="opt-badge detected" id="badge-letterSpacing" style="display:none">Detected</span></span>
+              <span class="opt-desc">Collapse "S o u t h e r n" → "Southern" — common in magazine and newsletter PDFs</span></div>
+            </label>
+            <label class="opt-row">
+              <input type="checkbox" id="opt-dropCaps" onchange="syncOpts()" />
+              <div><span class="opt-name">Remove drop-cap &amp; sidebar artifacts <span class="opt-badge detected" id="badge-dropCaps" style="display:none">Detected</span></span>
+              <span class="opt-desc">Remove stray single letters and isolated numbers from magazine-style layouts</span></div>
             </label>
           </div>
 
@@ -572,12 +582,12 @@ async function preScan(id) {
   try {
     if (ext === 'pdf') {
       document.getElementById('grpPdf').style.display = '';
-      const slice = file.slice(0, Math.min(file.size, 800000));
+      const slice = file.slice(0, Math.min(file.size, 900000));
       const buf   = await slice.arrayBuffer();
       const pdf   = await pdfjsLib.getDocument({ data: buf }).promise;
-      const n     = Math.min(pdf.numPages, 8);
+      const n     = Math.min(pdf.numPages, 10);
       const firstLines = [], lastLines = [];
-      let hyphenCount = 0, urlCount = 0;
+      let hyphenCount = 0, urlCount = 0, letterSpacedCount = 0, dropCapCount = 0;
 
       for (let p = 1; p <= n; p++) {
         const page = await pdf.getPage(p);
@@ -588,20 +598,32 @@ async function preScan(id) {
           text += item.str; lastY = item.transform[5];
         }
         const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-        if (lines.length > 0) firstLines.push(lines[0]);
-        if (lines.length > 1) lastLines.push(lines[lines.length - 1]);
+        // Use normalised form for repeat detection (strips leading/trailing page numbers)
+        if (lines.length > 0) firstLines.push(normalizeForRepeat(lines[0]));
+        if (lines.length > 1) lastLines.push(normalizeForRepeat(lines[lines.length - 1]));
         hyphenCount += (text.match(/[a-z]-\n[a-z]/g) || []).length;
         urlCount    += (text.match(/https?:\/\//g) || []).length;
+        // Detect letter-spaced lines
+        for (const ln of lines) {
+          const tok = ln.split(' ');
+          if (tok.length >= 5) {
+            const singles = tok.filter(t => /^[A-Za-z0-9'.,]$/.test(t)).length;
+            if (singles / tok.length >= 0.65) letterSpacedCount++;
+          }
+        }
+        // Detect drop-cap stray singles (single uppercase letter on its own line)
+        dropCapCount += lines.filter(l => /^[A-Z]$/.test(l)).length;
       }
 
+      // Normalised repeat check — catches "3 ~ Site ~ June" and "5 ~ Site ~ June" as the same
       const hasRepeat = arr => {
         const freq = {};
         arr.forEach(l => { if (l.length > 4) freq[l] = (freq[l]||0)+1; });
-        return Object.values(freq).some(c => c >= Math.max(2, arr.length * 0.4));
+        return Object.values(freq).some(c => c >= Math.max(2, arr.length * 0.35));
       };
       if (hasRepeat(firstLines) || hasRepeat(lastLines))
         addSugg('opt-repeatHdr', 'Remove repeated headers/footers',
-          `Repeated text detected at top/bottom of pages in ${file.name}`, 'badge-repeatHdr');
+          `Repeated header or footer detected on multiple pages of ${file.name}`, 'badge-repeatHdr');
       if (hyphenCount >= 3)
         addSugg('opt-hyph', 'Fix word hyphenation',
           `${hyphenCount} hyphenated line-breaks found in ${file.name}`, 'badge-hyph');
@@ -610,7 +632,13 @@ async function preScan(id) {
           `${urlCount} URLs detected — they consume extra tokens`, 'badge-stripUrls');
       if (n >= 4)
         addSugg('opt-pageSep', 'Remove page separators',
-          `${pdf.numPages}-page document — page number dividers add noise`, 'badge-pageSep');
+          `${pdf.numPages}-page document — "## Page N" dividers add noise`, 'badge-pageSep');
+      if (letterSpacedCount >= 2)
+        addSugg('opt-letterSpacing', 'Fix letter-spaced text',
+          `${letterSpacedCount} letter-spaced lines detected in ${file.name} (e.g. "S o u t h e r n")`, 'badge-letterSpacing');
+      if (dropCapCount >= 2)
+        addSugg('opt-dropCaps', 'Remove drop-cap & sidebar artifacts',
+          `${dropCapCount} single-letter drop caps / stray numbers found in ${file.name}`, 'badge-dropCaps');
 
     } else if (ext === 'docx' || ext === 'doc') {
       document.getElementById('grpDocx').style.display = '';
@@ -700,7 +728,8 @@ function openOptions() {
 }
 function syncOpts() {
   const ids = ['opt-collapseWs','opt-stripUrls','opt-capHeadings','opt-pageSep',
-               'opt-repeatHdr','opt-hyph','opt-imgPlaceholder','opt-skipEmptyRows','opt-sheetHeadings'];
+               'opt-repeatHdr','opt-hyph','opt-letterSpacing','opt-dropCaps',
+               'opt-imgPlaceholder','opt-skipEmptyRows','opt-sheetHeadings'];
   const n = ids.filter(id => { const el=document.getElementById(id); return el&&el.checked; }).length;
   const badge = document.getElementById('activeCount');
   badge.textContent = n; badge.style.display = n > 0 ? '' : 'none';
@@ -711,6 +740,7 @@ function getOpts() {
   return { collapseWs:cb('opt-collapseWs'), stripUrls:cb('opt-stripUrls'),
            capHeadings:cb('opt-capHeadings'), pageSep:cb('opt-pageSep'),
            repeatHdr:cb('opt-repeatHdr'), hyph:cb('opt-hyph'),
+           letterSpacing:cb('opt-letterSpacing'), dropCaps:cb('opt-dropCaps'),
            imgPlaceholder:cb('opt-imgPlaceholder'), skipEmptyRows:cb('opt-skipEmptyRows'),
            sheetHeadings:cb('opt-sheetHeadings') };
 }
@@ -771,25 +801,62 @@ async function convertPDF(file) {
     pages.push(text.trim());
   }
 
-  // Identify repeated header/footer lines
+  // Identify repeated header/footer lines (using normalised keys)
   let repeated = new Set();
   if (o.repeatHdr && pages.length >= 3) {
-    const threshold = Math.max(2, Math.ceil(pages.length * 0.4));
-    const freq = {};
+    const threshold = Math.max(2, Math.ceil(pages.length * 0.35));
+    const freq = {};   // normalised → original lines set
+    const normToOriginals = {};
     for (const pg of pages) {
       const lines = pg.split('\n').map(l => l.trim()).filter(l => l.length > 4);
-      [...lines.slice(0,2), ...lines.slice(-2)].forEach(l => freq[l] = (freq[l]||0)+1);
+      [...lines.slice(0, 2), ...lines.slice(-2)].forEach(l => {
+        const key = normalizeForRepeat(l);
+        if (key.length > 4) {
+          freq[key] = (freq[key] || 0) + 1;
+          if (!normToOriginals[key]) normToOriginals[key] = new Set();
+          normToOriginals[key].add(l);
+        }
+      });
     }
-    for (const [l, c] of Object.entries(freq)) if (c >= threshold) repeated.add(l);
+    for (const [key, count] of Object.entries(freq)) {
+      if (count >= threshold) {
+        // Mark all original variants of this normalised key as repeated
+        (normToOriginals[key] || new Set()).forEach(l => repeated.add(l));
+        // Also mark the pattern itself (catches exact matches too)
+        repeated.add(key);
+      }
+    }
   }
 
   let md = `# ${name}\n\n`;
   for (let i = 0; i < pages.length; i++) {
     let text = pages[i];
     if (!text) continue;
-    if (repeated.size > 0)
-      text = text.split('\n').filter(l => !repeated.has(l.trim())).join('\n');
+
+    // Remove repeated headers/footers (exact + normalised pattern)
+    if (repeated.size > 0) {
+      text = text.split('\n').filter(l => {
+        const t = l.trim();
+        return !repeated.has(t) && !repeated.has(normalizeForRepeat(t));
+      }).join('\n');
+    }
+
+    // Fix word hyphenation
     if (o.hyph) text = text.replace(/([a-z])-\n([a-z])/g, '$1$2');
+
+    // Fix letter-spaced text ("S o u t h e r n" → "Southern")
+    if (o.letterSpacing) text = text.split('\n').map(fixLetterSpacedLine).join('\n');
+
+    // Remove drop-cap single letters and stray sidebar numbers
+    if (o.dropCaps) {
+      text = text.split('\n').filter(l => {
+        const t = l.trim();
+        return !/^[A-Z]$/.test(t) &&          // single uppercase letter (drop cap)
+               !/^\d{1,2}$/.test(t) &&         // 1-2 digit number (sidebar page ref)
+               !/^[.·•|~]$/.test(t);           // stray punctuation
+      }).join('\n');
+    }
+
     text = text.trim();
     if (!text) continue;
     if (!o.pageSep) md += `## Page ${i + 1}\n\n`;
@@ -892,6 +959,36 @@ function dl(blob, name) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+
+// ── PDF helpers ───────────────────────────────────────────
+
+// Strip leading/trailing page numbers so "3 ~ Site" and "7 ~ Site" compare equal
+function normalizeForRepeat(line) {
+  return line.trim()
+    .replace(/^\d[\d\s]*[~·•|–-]+\s*/,'')
+    .replace(/\s*[~·•|–-]+[\d\s]*\d$/,'')
+    .trim();
+}
+
+// Collapse letter-spaced lines: "S o u t h e r n" → "Southern"
+function fixLetterSpacedLine(line) {
+  const tokens = line.split(' ');
+  if (tokens.length < 5) return line;
+  const singles = tokens.filter(t => /^[A-Za-z0-9'.,]$/.test(t)).length;
+  if (singles / tokens.length < 0.65) return line;
+  // Join consecutive single-char tokens; re-insert space at lowercase→uppercase transitions
+  return tokens.reduce((acc, t, i) => {
+    if (i === 0) return t;
+    const prev = tokens[i - 1];
+    const bothSingle = /^[A-Za-z0-9'.,]$/.test(t) && /^[A-Za-z0-9'.,]$/.test(prev);
+    if (!bothSingle) return acc + ' ' + t;
+    const wordBoundary =
+      (/[a-z0-9]$/.test(prev) && /[A-Z]/.test(t)) ||   // lower→UPPER
+      (/[A-Za-z]$/.test(prev) && /[0-9]/.test(t)) ||   // letter→digit
+      (/[0-9]$/.test(prev) && /[A-Za-z]/.test(t));     // digit→letter
+    return acc + (wordBoundary ? ' ' : '') + t;
+  }, '');
 }
 
 // ── Markdown Preview modal ────────────────────────────────
