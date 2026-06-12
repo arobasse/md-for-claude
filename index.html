@@ -852,9 +852,17 @@ async function convertPDF(file) {
       text = text.split('\n').filter(l => {
         const t = l.trim();
         return !/^[A-Z]$/.test(t) &&          // single uppercase letter (drop cap)
-               !/^\d{1,2}$/.test(t) &&         // 1-2 digit number (sidebar page ref)
+               !/^\d{1,3}$/.test(t) &&         // 1-3 digit number (page header / sidebar ref)
                !/^[.·•|~]$/.test(t);           // stray punctuation
       }).join('\n');
+
+      // Fix fused inline labels: "some text.Note:" → "some text.\n\nNote:"
+      text = text.replace(/([.!?])([A-Z][a-z]+:)/g, '$1\n\n$2');
+      // Fix fused section suffixes: "Product OverviewA\n" → "Product Overview\n" (trailing single uppercase)
+      text = text.replace(/([a-z])([A-Z])$/gm, (_, a, b) =>
+        // Only collapse if B is a single uppercase that looks like a section label
+        /^[A-Z]$/.test(b) ? a : a + b
+      );
     }
 
     text = text.trim();
