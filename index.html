@@ -6,6 +6,9 @@
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
   <title>MD for Claude – Convert Files to Markdown</title>
 
+  <!-- Tab favicon: MD logo -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Ctext x='16' y='23' font-size='14' font-weight='900' text-anchor='middle' fill='white' font-family='Arial%2Csans-serif'%3EMD%3C/text%3E%3C/svg%3E" />
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -13,30 +16,27 @@
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --blue:   #2563eb;
-      --blue-d: #1d4ed8;
-      --blue-l: #eff6ff;
-      --indigo: #4f46e5;
-      --green:  #16a34a;
-      --red:    #dc2626;
-      --amber:  #d97706;
-      --teal:   #0d9488;
-      --bg:     #f1f5f9;
-      --card:   #ffffff;
-      --border: #e2e8f0;
-      --text:   #1e293b;
-      --muted:  #64748b;
-      --radius: 12px;
+      --indigo:  #4f46e5;
+      --indigo-d:#4338ca;
+      --indigo-l:#eef2ff;
+      --blue:    #2563eb;
+      --green:   #16a34a;
+      --red:     #dc2626;
+      --amber:   #d97706;
+      --bg:      #f1f5f9;
+      --card:    #ffffff;
+      --border:  #e2e8f0;
+      --text:    #1e293b;
+      --muted:   #64748b;
+      --radius:  12px;
     }
-
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
     /* ── HEADER ── */
     header { background: linear-gradient(135deg,#1e3a8a 0%,#2563eb 60%,#4f46e5 100%); color:#fff; padding:0 24px; box-shadow:0 2px 12px rgba(0,0,0,.25); }
     .header-inner { max-width:960px; margin:0 auto; display:flex; align-items:center; gap:14px; height:62px; }
-    .logo-icon { width:38px; height:38px; background:rgba(255,255,255,.18); border-radius:10px; display:grid; place-items:center; font-size:20px; font-weight:900; letter-spacing:-1px; flex-shrink:0; }
+    .logo-icon { width:38px; height:38px; background:rgba(255,255,255,.18); border-radius:10px; display:grid; place-items:center; font-size:18px; font-weight:900; letter-spacing:-1px; flex-shrink:0; }
     .logo-text { font-size:20px; font-weight:700; letter-spacing:-.3px; }
     .logo-sub  { font-size:12px; opacity:.7; margin-top:1px; }
     .badge-ai  { margin-left:auto; background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.3); border-radius:20px; padding:4px 12px; font-size:12px; font-weight:500; white-space:nowrap; }
@@ -53,96 +53,125 @@
     .main { max-width:800px; margin:-44px auto 48px; padding:0 16px; }
     .card { background:var(--card); border-radius:var(--radius); box-shadow:0 4px 32px rgba(0,0,0,.10); overflow:hidden; }
 
-    /* ── DROPZONE ── */
+    /* ── BIG DROPZONE (shown when no files) ── */
+    #dzWrap { display:block; }
     .dropzone { border:2.5px dashed #c7d2fe; border-radius:10px; margin:28px; padding:48px 24px; text-align:center; cursor:pointer; transition:background .2s,border-color .2s; background:#f8faff; position:relative; }
-    .dropzone.dragover { background:var(--blue-l); border-color:var(--blue); }
+    .dropzone.dragover { background:var(--indigo-l); border-color:var(--indigo); }
     .dropzone input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
     .dz-icon  { font-size:52px; line-height:1; margin-bottom:14px; }
     .dz-title { font-size:18px; font-weight:700; }
     .dz-sub   { margin-top:6px; color:var(--muted); font-size:14px; }
-    .btn-choose { margin-top:20px; display:inline-block; background:var(--blue); color:#fff; border:none; border-radius:8px; padding:11px 28px; font-size:15px; font-weight:600; cursor:pointer; transition:background .15s,transform .1s; }
-    .btn-choose:hover { background:var(--blue-d); transform:translateY(-1px); }
+    .btn-choose { margin-top:20px; display:inline-block; background:var(--indigo); color:#fff; border:none; border-radius:8px; padding:11px 28px; font-size:15px; font-weight:600; cursor:pointer; transition:background .15s,transform .1s; }
+    .btn-choose:hover { background:var(--indigo-d); transform:translateY(-1px); }
     .dz-formats { margin-top:14px; font-size:12px; color:var(--muted); }
-    .dz-formats span { font-weight:600; color:var(--blue); }
+    .dz-formats span { font-weight:600; color:var(--indigo); }
+
+    /* ── ACTIVE AREA (shown when files added) ── */
+    #activeArea { display:none; }
+
+    /* ── ADD MORE FILES BAR ── */
+    .add-more-bar { padding:12px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; }
+    input#fileInputMore { display:none; }
+    .btn-add-more { display:flex; align-items:stretch; background:#fff; border:1.5px solid #c7d2fe; border-radius:8px; cursor:pointer; overflow:hidden; transition:border-color .15s; font-family:inherit; }
+    .btn-add-more:hover { border-color:var(--indigo); }
+    .btn-add-main { display:flex; align-items:center; gap:8px; padding:8px 14px; color:var(--indigo); font-size:14px; font-weight:600; background:none; border:none; cursor:pointer; }
+    .btn-add-main svg { flex-shrink:0; }
+    .btn-add-chevron { display:flex; align-items:center; padding:8px 10px; border-left:1.5px solid #c7d2fe; color:var(--indigo); background:none; border-top:none; border-right:none; border-bottom:none; cursor:pointer; font-size:12px; }
 
     /* ── FILE LIST ── */
-    #fileList { padding:0 28px; }
-    .file-item { display:flex; align-items:center; gap:12px; padding:14px 16px; border:1px solid var(--border); border-radius:10px; margin-bottom:10px; background:#fafbfc; transition:box-shadow .15s; }
-    .file-item:hover { box-shadow:0 2px 8px rgba(0,0,0,.07); }
-    .file-ext { width:42px; height:42px; border-radius:8px; display:grid; place-items:center; font-size:11px; font-weight:800; letter-spacing:.3px; flex-shrink:0; text-transform:uppercase; }
+    #fileList { }
+    .file-row { display:flex; flex-direction:column; border-bottom:1px solid #f1f5f9; background:#fff; }
+    .file-row:last-child { border-bottom:none; }
+    .file-row-inner { display:flex; align-items:center; gap:14px; padding:16px 20px; }
+    .fr-left  { display:flex; align-items:center; gap:12px; flex:1; min-width:0; }
+    .fr-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+    .file-ext-badge { width:40px; height:40px; border-radius:8px; display:grid; place-items:center; font-size:10px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; flex-shrink:0; }
     .ext-pdf  { background:#fee2e2; color:#dc2626; }
     .ext-docx,.ext-doc { background:#dbeafe; color:#1d4ed8; }
     .ext-xls,.ext-xlsx { background:#dcfce7; color:#15803d; }
     .ext-txt  { background:#f3f4f6; color:#374151; }
     .ext-html,.ext-htm { background:#fff7ed; color:#c2410c; }
-    .ext-other{ background:#f3f4f6; color:#6b7280; }
-    .file-info { flex:1; min-width:0; }
-    .file-name { font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .file-size { font-size:12px; color:var(--muted); margin-top:2px; }
-    .file-status { font-size:12px; font-weight:600; padding:3px 10px; border-radius:20px; white-space:nowrap; }
-    .status-ready   { background:#eff6ff; color:var(--blue); }
-    .status-scan    { background:#fef9c3; color:#92400e; }
-    .status-working { background:#fef3c7; color:var(--amber); }
-    .status-done    { background:#dcfce7; color:var(--green); }
-    .status-error   { background:#fee2e2; color:var(--red); }
-    .btn-remove { background:none; border:none; cursor:pointer; color:#94a3b8; font-size:18px; line-height:1; padding:4px; border-radius:4px; transition:color .15s; }
-    .btn-remove:hover { color:var(--red); }
-    .btn-dl { background:var(--green); color:#fff; border:none; border-radius:6px; padding:5px 12px; font-size:12px; font-weight:600; cursor:pointer; transition:opacity .15s; white-space:nowrap; }
-    .btn-dl:hover { opacity:.85; }
+    .fr-name { font-size:15px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .fr-meta { font-size:12px; color:var(--muted); margin-top:2px; }
+    .fr-meta.done  { color:var(--green); font-weight:600; }
+    .fr-meta.error { color:var(--red);   font-weight:600; }
+
+    .output-badge { display:flex; align-items:center; gap:6px; border:1.5px solid #c7d2fe; border-radius:6px; padding:5px 11px; font-size:13px; font-weight:700; color:var(--indigo); white-space:nowrap; }
+    .output-badge .out-label { font-weight:400; color:var(--muted); font-size:12px; margin-right:2px; }
+
+    .fr-icon-btn { width:32px; height:32px; border-radius:50%; border:1.5px solid var(--border); background:#fff; display:grid; place-items:center; cursor:pointer; color:var(--muted); font-size:14px; transition:all .15s; flex-shrink:0; }
+    .fr-icon-btn:hover { border-color:#94a3b8; color:var(--text); }
+    .fr-icon-btn.remove:hover { border-color:#fca5a5; color:var(--red); background:#fef2f2; }
+
+    .btn-dl-one { display:none; background:var(--green); color:#fff; border:none; border-radius:6px; padding:6px 13px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; transition:opacity .15s; }
+    .btn-dl-one:hover { opacity:.85; }
+
+    /* ── PROGRESS BAR per file ── */
+    .fr-progress { height:3px; background:#e0e7ff; overflow:hidden; display:none; }
+    .fr-progress.active { display:block; }
+    .fr-progress-fill { height:100%; background:var(--indigo); border-radius:99px; animation:indeterminate 1.4s ease-in-out infinite; transform-origin:left; }
+    @keyframes indeterminate {
+      0%   { transform:translateX(-100%) scaleX(.4); }
+      50%  { transform:translateX(30%) scaleX(.8); }
+      100% { transform:translateX(110%) scaleX(.4); }
+    }
+    .fr-progress.done .fr-progress-fill { animation:none; background:var(--green); transform:scaleX(1); }
+
+    /* ── SCANNING INDICATOR ── */
+    #scanIndicator { display:none; padding:10px 20px; font-size:12px; color:var(--muted); border-bottom:1px solid var(--border); background:#fafbfc; }
 
     /* ── SUGGESTIONS BANNER ── */
-    #suggestionsBanner { display:none; margin:0 28px 16px; background:linear-gradient(135deg,#ecfdf5,#f0fdf4); border:1.5px solid #86efac; border-radius:10px; padding:16px 18px; }
-    .sug-header { display:flex; align-items:flex-start; gap:10px; }
-    .sug-icon { font-size:20px; flex-shrink:0; margin-top:1px; }
-    .sug-title { font-size:14px; font-weight:700; color:#166534; flex:1; }
-    .btn-sug-close { background:none; border:none; cursor:pointer; color:#6b7280; font-size:16px; padding:0 2px; line-height:1; }
-    .sug-list { margin:10px 0 14px 30px; display:flex; flex-direction:column; gap:6px; }
-    .sug-item { display:flex; align-items:center; gap:8px; font-size:13px; color:#1e293b; }
-    .sug-item-tag { background:#bbf7d0; color:#166534; border-radius:4px; padding:1px 7px; font-size:11px; font-weight:700; white-space:nowrap; }
+    #suggestionsBanner { display:none; margin:12px 20px; background:linear-gradient(135deg,#ecfdf5,#f0fdf4); border:1.5px solid #86efac; border-radius:10px; padding:14px 16px; }
+    .sug-header { display:flex; align-items:flex-start; gap:8px; }
+    .sug-title  { font-size:13px; font-weight:700; color:#166534; flex:1; }
+    .btn-sug-close { background:none; border:none; cursor:pointer; color:#6b7280; font-size:15px; padding:0; line-height:1; }
+    .sug-list { margin:8px 0 12px 26px; display:flex; flex-direction:column; gap:5px; }
+    .sug-item { display:flex; align-items:flex-start; gap:8px; font-size:12px; color:var(--text); line-height:1.4; }
+    .sug-tag  { background:#bbf7d0; color:#166534; border-radius:4px; padding:1px 7px; font-size:11px; font-weight:700; white-space:nowrap; flex-shrink:0; margin-top:1px; }
     .sug-actions { display:flex; gap:8px; }
-    .btn-apply-all { background:#16a34a; color:#fff; border:none; border-radius:7px; padding:8px 18px; font-size:13px; font-weight:700; cursor:pointer; transition:opacity .15s; }
+    .btn-apply-all { background:#16a34a; color:#fff; border:none; border-radius:7px; padding:7px 16px; font-size:13px; font-weight:700; cursor:pointer; }
     .btn-apply-all:hover { opacity:.85; }
-    .btn-open-opts { background:none; border:1px solid #86efac; color:#166534; border-radius:7px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer; transition:background .15s; }
+    .btn-open-opts { background:none; border:1px solid #86efac; color:#166534; border-radius:7px; padding:7px 12px; font-size:13px; font-weight:600; cursor:pointer; }
     .btn-open-opts:hover { background:#dcfce7; }
 
     /* ── OPTIONS PANEL ── */
-    #optionsPanel { display:none; margin:0 28px 16px; border:1.5px solid var(--border); border-radius:10px; overflow:hidden; }
-    .opts-toggle { display:flex; align-items:center; justify-content:space-between; padding:13px 18px; cursor:pointer; background:#f8fafc; user-select:none; transition:background .15s; }
+    #optionsPanel { display:none; margin:12px 20px; border:1.5px solid var(--border); border-radius:10px; overflow:hidden; }
+    .opts-toggle { display:flex; align-items:center; justify-content:space-between; padding:11px 16px; cursor:pointer; background:#f8fafc; user-select:none; transition:background .15s; }
     .opts-toggle:hover { background:#f1f5f9; }
-    .opts-toggle-left { display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; color:var(--text); }
-    .opts-arrow { font-size:12px; color:var(--muted); transition:transform .2s; }
+    .opts-toggle-left { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; }
+    .opts-arrow { font-size:11px; color:var(--muted); transition:transform .2s; }
     .opts-arrow.open { transform:rotate(180deg); }
     .opts-body { display:none; border-top:1px solid var(--border); }
     .opts-body.open { display:block; }
-    .opt-group { padding:16px 18px; border-bottom:1px solid #f1f5f9; }
+    .opt-group { padding:14px 16px; border-bottom:1px solid #f1f5f9; }
     .opt-group:last-child { border-bottom:none; }
-    .opt-group-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); margin-bottom:12px; }
-    .opt-row { display:flex; align-items:flex-start; gap:12px; margin-bottom:10px; cursor:pointer; }
+    .opt-group-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); margin-bottom:10px; }
+    .opt-row { display:flex; align-items:flex-start; gap:10px; margin-bottom:9px; cursor:pointer; }
     .opt-row:last-child { margin-bottom:0; }
-    .opt-row input[type=checkbox] { margin-top:2px; flex-shrink:0; width:15px; height:15px; accent-color:var(--blue); cursor:pointer; }
-    .opt-info { flex:1; }
+    .opt-row input[type=checkbox] { margin-top:2px; flex-shrink:0; width:14px; height:14px; accent-color:var(--indigo); cursor:pointer; }
     .opt-name { font-size:13px; font-weight:600; display:block; }
-    .opt-desc { font-size:12px; color:var(--muted); display:block; margin-top:1px; line-height:1.4; }
-    .opt-badge { display:inline-block; background:#fef3c7; color:#92400e; border-radius:4px; padding:1px 6px; font-size:10px; font-weight:700; margin-left:6px; vertical-align:middle; }
-    .opt-badge.green { background:#dcfce7; color:#166534; }
+    .opt-desc { font-size:11px; color:var(--muted); display:block; margin-top:1px; line-height:1.4; }
+    .opt-badge { display:inline-block; background:#fef3c7; color:#92400e; border-radius:4px; padding:1px 5px; font-size:10px; font-weight:700; margin-left:5px; }
+    .opt-badge.on { background:#dcfce7; color:#166534; }
+    .opt-badge.detected { background:#fef3c7; color:#b45309; }
 
-    /* ── ACTIONS ── */
-    #actions { display:none; padding:20px 28px 28px; gap:12px; flex-wrap:wrap; align-items:center; border-top:1px solid var(--border); }
-    .btn-convert { background:linear-gradient(90deg,var(--blue) 0%,var(--indigo) 100%); color:#fff; border:none; border-radius:8px; padding:12px 32px; font-size:15px; font-weight:700; cursor:pointer; transition:opacity .15s,transform .1s; box-shadow:0 2px 12px rgba(37,99,235,.35); }
-    .btn-convert:hover:not(:disabled) { opacity:.9; transform:translateY(-1px); }
-    .btn-convert:disabled { opacity:.5; cursor:default; }
-    .btn-dl-all { display:none; background:var(--green); color:#fff; border:none; border-radius:8px; padding:12px 24px; font-size:15px; font-weight:700; cursor:pointer; transition:opacity .15s; box-shadow:0 2px 12px rgba(22,163,74,.3); }
-    .btn-dl-all:hover { opacity:.85; }
-    .btn-clear { background:none; border:1px solid var(--border); color:var(--muted); border-radius:8px; padding:12px 18px; font-size:14px; font-weight:500; cursor:pointer; transition:border-color .15s; }
-    .btn-clear:hover { border-color:#94a3b8; color:var(--text); }
-    #statusMsg { flex:1; font-size:13px; color:var(--muted); min-width:120px; }
+    /* ── BOTTOM BAR ── */
+    .bottom-bar { display:flex; align-items:stretch; justify-content:space-between; border-top:1px solid var(--border); background:#f8fafc; border-radius:0 0 var(--radius) var(--radius); overflow:hidden; min-height:58px; }
+    .bottom-left { display:flex; align-items:center; padding:0 20px; font-size:14px; color:var(--muted); gap:10px; flex:1; }
+    .bottom-left strong { color:var(--text); }
+    .btn-bottom { border:none; padding:0 40px; font-size:16px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:10px; transition:background .15s; white-space:nowrap; border-radius:0 0 var(--radius) 0; }
+    .btn-bottom.convert { background:var(--indigo); color:#fff; }
+    .btn-bottom.convert:hover { background:var(--indigo-d); }
+    .btn-bottom.convert:disabled { background:#a5b4fc; cursor:default; }
+    .btn-bottom.download { background:var(--green); color:#fff; border-radius:0 0 var(--radius) 0; }
+    .btn-bottom.download:hover { opacity:.9; }
 
     /* ── HOW IT WORKS ── */
     .how-section { max-width:800px; margin:0 auto 48px; padding:0 16px; }
     .how-section h2 { font-size:20px; font-weight:700; margin-bottom:20px; text-align:center; }
     .how-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:16px; }
     .how-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:22px 18px; text-align:center; box-shadow:0 1px 6px rgba(0,0,0,.05); }
-    .how-num { width:34px; height:34px; background:var(--blue-l); color:var(--blue); border-radius:50%; display:grid; place-items:center; font-weight:800; font-size:15px; margin:0 auto 12px; }
+    .how-num { width:34px; height:34px; background:var(--indigo-l); color:var(--indigo); border-radius:50%; display:grid; place-items:center; font-weight:800; font-size:15px; margin:0 auto 12px; }
     .how-card h3 { font-size:14px; font-weight:700; margin-bottom:6px; }
     .how-card p  { font-size:13px; color:var(--muted); line-height:1.5; }
 
@@ -150,7 +179,7 @@
     .formats-section { max-width:800px; margin:0 auto 64px; padding:0 16px; }
     .formats-section h2 { font-size:20px; font-weight:700; margin-bottom:20px; text-align:center; }
     .fmt-table { width:100%; border-collapse:collapse; background:var(--card); border-radius:var(--radius); overflow:hidden; box-shadow:0 1px 6px rgba(0,0,0,.06); }
-    .fmt-table th { background:var(--blue); color:#fff; text-align:left; padding:12px 18px; font-size:13px; }
+    .fmt-table th { background:var(--indigo); color:#fff; text-align:left; padding:12px 18px; font-size:13px; }
     .fmt-table td { padding:12px 18px; font-size:13px; border-bottom:1px solid var(--border); }
     .fmt-table tr:last-child td { border-bottom:none; }
     .fmt-table tr:nth-child(even) td { background:#f8fafc; }
@@ -159,17 +188,17 @@
     footer { background:#1e293b; color:#94a3b8; text-align:center; padding:24px 16px; font-size:13px; }
     footer strong { color:#e2e8f0; }
 
-    @media(max-width:540px){
+    @media(max-width:600px){
       .dropzone { padding:32px 16px; }
-      .btn-convert,.btn-dl-all,.btn-clear { width:100%; text-align:center; }
-      #suggestionsBanner, #optionsPanel { margin-left:14px; margin-right:14px; }
-      #fileList { padding:0 14px; }
-      #actions { padding:16px 14px 20px; }
+      .file-row-inner { flex-wrap:wrap; gap:10px; }
+      .fr-right { width:100%; justify-content:flex-end; }
+      .btn-bottom { padding:0 22px; font-size:14px; }
     }
   </style>
 </head>
 <body>
 
+<!-- ════════ HEADER ════════ -->
 <header>
   <div class="header-inner">
     <div class="logo-icon">MD</div>
@@ -181,6 +210,7 @@
   </div>
 </header>
 
+<!-- ════════ HERO ════════ -->
 <div class="hero">
   <h1>Convert Your Files to Markdown<br>for Claude &amp; AI Assistants</h1>
   <p>Upload PDF, Word, Excel, TXT, or HTML files — get clean, token-efficient Markdown ready to paste into any AI conversation.</p>
@@ -191,188 +221,176 @@
     <span class="pill">TXT</span>
     <span class="pill">HTML</span>
     <span class="pill-arrow">→</span>
-    <span class="pill" style="background:rgba(255,255,255,.9);color:#2563eb;">.md</span>
+    <span class="pill" style="background:rgba(255,255,255,.9);color:#4f46e5;">.md</span>
   </div>
 </div>
 
+<!-- ════════ MAIN CARD ════════ -->
 <div class="main">
   <div class="card">
 
-    <!-- Drop Zone -->
-    <div class="dropzone" id="dropzone">
-      <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.html,.htm" />
-      <div class="dz-icon">📄</div>
-      <div class="dz-title">Drop files here or click to browse</div>
-      <div class="dz-sub">Drag &amp; drop any supported file</div>
-      <button class="btn-choose" onclick="document.getElementById('fileInput').click();event.stopPropagation();">Choose Files</button>
-      <div class="dz-formats">Supported: <span>PDF · DOCX · DOC · XLS · XLSX · TXT · HTML · HTM</span></div>
-    </div>
-
-    <!-- File List -->
-    <div id="fileList"></div>
-
-    <!-- Smart Suggestions Banner -->
-    <div id="suggestionsBanner">
-      <div class="sug-header">
-        <span class="sug-icon">💡</span>
-        <span class="sug-title">Smart suggestions based on your files</span>
-        <button class="btn-sug-close" onclick="dismissSuggestions()" title="Dismiss">✕</button>
-      </div>
-      <ul class="sug-list" id="sugList"></ul>
-      <div class="sug-actions">
-        <button class="btn-apply-all" onclick="applyAllSuggestions()">Apply All Suggestions</button>
-        <button class="btn-open-opts" onclick="openOptions()">⚙ Open Options</button>
+    <!-- Big dropzone (no files yet) -->
+    <div id="dzWrap">
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.html,.htm" />
+        <div class="dz-icon">📄</div>
+        <div class="dz-title">Drop files here or click to browse</div>
+        <div class="dz-sub">Drag &amp; drop one or more files</div>
+        <button class="btn-choose" type="button"
+                onclick="document.getElementById('fileInput').click();event.stopPropagation();">
+          Choose Files
+        </button>
+        <div class="dz-formats">Supported: <span>PDF · DOCX · DOC · XLS · XLSX · TXT · HTML · HTM</span></div>
       </div>
     </div>
 
-    <!-- Advanced Options Panel -->
-    <div id="optionsPanel">
-      <div class="opts-toggle" onclick="toggleOptions()">
-        <span class="opts-toggle-left">⚙&nbsp; Advanced Options <span id="activeCount" style="display:none;margin-left:6px;background:var(--blue);color:#fff;border-radius:20px;padding:1px 8px;font-size:11px;font-weight:700;"></span></span>
-        <span class="opts-arrow" id="optsArrow">▼</span>
+    <!-- Active area (files present) -->
+    <div id="activeArea">
+
+      <!-- "Add More Files" bar -->
+      <div class="add-more-bar">
+        <input type="file" id="fileInputMore" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.html,.htm" />
+        <div class="btn-add-more">
+          <button class="btn-add-main" type="button"
+                  onclick="document.getElementById('fileInputMore').click()">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8.75 2H3.5A1.5 1.5 0 0 0 2 3.5v9A1.5 1.5 0 0 0 3.5 14h9A1.5 1.5 0 0 0 14 12.5V7.25" stroke="#4f46e5" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M11 1v4m0 0H7m4 0h4" stroke="#4f46e5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Add More Files
+          </button>
+          <button class="btn-add-chevron" type="button"
+                  onclick="document.getElementById('fileInputMore').click()">▾</button>
+        </div>
       </div>
-      <div class="opts-body" id="optsBody">
 
-        <!-- Universal -->
-        <div class="opt-group">
-          <div class="opt-group-title">✨ Output Quality — all formats</div>
+      <!-- File rows -->
+      <div id="fileList"></div>
 
-          <label class="opt-row">
-            <input type="checkbox" id="opt-collapseWs" checked onchange="syncOpts()" />
-            <div class="opt-info">
-              <span class="opt-name">Collapse whitespace <span class="opt-badge green">ON</span></span>
-              <span class="opt-desc">Reduce 3+ blank lines to one — saves tokens in every format</span>
-            </div>
-          </label>
+      <!-- Scanning indicator (brief, background) -->
+      <div id="scanIndicator">🔍 Analyzing files for smart suggestions…</div>
 
-          <label class="opt-row">
-            <input type="checkbox" id="opt-stripUrls" onchange="syncOpts()" />
-            <div class="opt-info">
-              <span class="opt-name">Replace URLs with [link]</span>
-              <span class="opt-desc">Long URLs are token-heavy and rarely needed in context</span>
-            </div>
-          </label>
-
-          <label class="opt-row">
-            <input type="checkbox" id="opt-capHeadings" onchange="syncOpts()" />
-            <div class="opt-info">
-              <span class="opt-name">Cap heading depth at H3</span>
-              <span class="opt-desc">Convert H4–H6 to H3 for cleaner, flatter structure</span>
-            </div>
-          </label>
+      <!-- Suggestions banner -->
+      <div id="suggestionsBanner">
+        <div class="sug-header">
+          <span style="font-size:18px">💡</span>
+          <span class="sug-title">Smart suggestions for your files</span>
+          <button class="btn-sug-close" onclick="dismissSuggestions()">✕</button>
         </div>
-
-        <!-- PDF -->
-        <div class="opt-group" id="grpPdf" style="display:none">
-          <div class="opt-group-title">📄 PDF options</div>
-
-          <label class="opt-row">
-            <input type="checkbox" id="opt-pageSep" onchange="syncOpts()" />
-            <div class="opt-info">
-              <span class="opt-name">Remove page separators</span>
-              <span class="opt-desc">Remove "## Page N" dividers — text flows naturally without them</span>
-            </div>
-          </label>
-
-          <label class="opt-row">
-            <input type="checkbox" id="opt-repeatHdr" onchange="syncOpts()" />
-            <div class="opt-info">
-              <span class="opt-name">Remove repeated headers/footers <span class="opt-badge" id="badge-repeatHdr" style="display:none">Detected</span></span>
-              <span class="opt-desc">Strip document title and footer text that repeats on every page</span>
-            </div>
-          </label>
-
-          <label class="opt-row">
-            <input type="checkbox" id="opt-hyph" onchange="syncOpts()" />
-            <div class="opt-info">
-              <span class="opt-name">Fix word hyphenation <span class="opt-badge" id="badge-hyph" style="display:none">Detected</span></span>
-              <span class="opt-desc">Rejoin words split across lines (e.g. "impor-\ntant" → "important")</span>
-            </div>
-          </label>
+        <ul class="sug-list" id="sugList"></ul>
+        <div class="sug-actions">
+          <button class="btn-apply-all" onclick="applyAllSuggestions()">Apply All Suggestions</button>
+          <button class="btn-open-opts" onclick="openOptions()">⚙ Options</button>
         </div>
+      </div>
 
-        <!-- DOCX -->
-        <div class="opt-group" id="grpDocx" style="display:none">
-          <div class="opt-group-title">📝 Word document options</div>
-
-          <label class="opt-row">
-            <input type="checkbox" id="opt-imgPlaceholder" checked onchange="syncOpts()" />
-            <div class="opt-info">
-              <span class="opt-name">Add image placeholders <span class="opt-badge green">ON</span></span>
-              <span class="opt-desc">Replace embedded images with [Image: alt text] markers</span>
-            </div>
-          </label>
+      <!-- Advanced Options panel -->
+      <div id="optionsPanel">
+        <div class="opts-toggle" onclick="toggleOptions()">
+          <span class="opts-toggle-left">
+            ⚙&nbsp; Advanced Options
+            <span id="activeCount" style="display:none;background:var(--indigo);color:#fff;border-radius:20px;padding:1px 8px;font-size:11px;font-weight:700;"></span>
+          </span>
+          <span class="opts-arrow" id="optsArrow">▼</span>
         </div>
+        <div class="opts-body" id="optsBody">
 
-        <!-- XLS -->
-        <div class="opt-group" id="grpXls" style="display:none">
-          <div class="opt-group-title">📊 Spreadsheet options</div>
+          <div class="opt-group">
+            <div class="opt-group-title">✨ All formats</div>
+            <label class="opt-row">
+              <input type="checkbox" id="opt-collapseWs" checked onchange="syncOpts()" />
+              <div><span class="opt-name">Collapse whitespace <span class="opt-badge on">ON</span></span>
+              <span class="opt-desc">Reduce 3+ blank lines to one — saves tokens in every format</span></div>
+            </label>
+            <label class="opt-row">
+              <input type="checkbox" id="opt-stripUrls" onchange="syncOpts()" />
+              <div><span class="opt-name">Replace URLs with [link] <span class="opt-badge detected" id="badge-stripUrls" style="display:none">Detected</span></span>
+              <span class="opt-desc">Long URLs are token-heavy and rarely needed in context</span></div>
+            </label>
+            <label class="opt-row">
+              <input type="checkbox" id="opt-capHeadings" onchange="syncOpts()" />
+              <div><span class="opt-name">Cap heading depth at H3 <span class="opt-badge detected" id="badge-capHeadings" style="display:none">Detected</span></span>
+              <span class="opt-desc">Convert H4–H6 to H3 for a cleaner, flatter structure</span></div>
+            </label>
+          </div>
 
-          <label class="opt-row">
-            <input type="checkbox" id="opt-skipEmptyRows" checked onchange="syncOpts()" />
-            <div class="opt-info">
-              <span class="opt-name">Skip empty rows <span class="opt-badge green">ON</span></span>
-              <span class="opt-desc">Filter out rows where every cell is blank</span>
-            </div>
-          </label>
+          <div class="opt-group" id="grpPdf" style="display:none">
+            <div class="opt-group-title">📄 PDF</div>
+            <label class="opt-row">
+              <input type="checkbox" id="opt-pageSep" onchange="syncOpts()" />
+              <div><span class="opt-name">Remove page separators <span class="opt-badge detected" id="badge-pageSep" style="display:none">Detected</span></span>
+              <span class="opt-desc">Remove "## Page N" dividers — text flows naturally without them</span></div>
+            </label>
+            <label class="opt-row">
+              <input type="checkbox" id="opt-repeatHdr" onchange="syncOpts()" />
+              <div><span class="opt-name">Remove repeated headers / footers <span class="opt-badge detected" id="badge-repeatHdr" style="display:none">Detected</span></span>
+              <span class="opt-desc">Strip document title and footer text that repeats on every page</span></div>
+            </label>
+            <label class="opt-row">
+              <input type="checkbox" id="opt-hyph" onchange="syncOpts()" />
+              <div><span class="opt-name">Fix word hyphenation <span class="opt-badge detected" id="badge-hyph" style="display:none">Detected</span></span>
+              <span class="opt-desc">Rejoin words split across lines (e.g. "impor-\ntant" → "important")</span></div>
+            </label>
+          </div>
 
-          <label class="opt-row">
-            <input type="checkbox" id="opt-sheetHeadings" checked onchange="syncOpts()" />
-            <div class="opt-info">
-              <span class="opt-name">Sheet names as headings <span class="opt-badge green">ON</span></span>
-              <span class="opt-desc">Prefix each sheet's table with "## SheetName"</span>
-            </div>
-          </label>
+          <div class="opt-group" id="grpDocx" style="display:none">
+            <div class="opt-group-title">📝 Word document</div>
+            <label class="opt-row">
+              <input type="checkbox" id="opt-imgPlaceholder" checked onchange="syncOpts()" />
+              <div><span class="opt-name">Add image placeholders <span class="opt-badge on">ON</span></span>
+              <span class="opt-desc">Replace embedded images with [Image: alt text] markers</span></div>
+            </label>
+          </div>
+
+          <div class="opt-group" id="grpXls" style="display:none">
+            <div class="opt-group-title">📊 Spreadsheet</div>
+            <label class="opt-row">
+              <input type="checkbox" id="opt-skipEmptyRows" checked onchange="syncOpts()" />
+              <div><span class="opt-name">Skip empty rows <span class="opt-badge on">ON</span></span>
+              <span class="opt-desc">Filter rows where every cell is blank</span></div>
+            </label>
+            <label class="opt-row">
+              <input type="checkbox" id="opt-sheetHeadings" checked onchange="syncOpts()" />
+              <div><span class="opt-name">Sheet names as headings <span class="opt-badge on">ON</span></span>
+              <span class="opt-desc">Prefix each sheet's table with "## SheetName"</span></div>
+            </label>
+          </div>
+
         </div>
+      </div><!-- /optionsPanel -->
 
-      </div><!-- /opts-body -->
-    </div><!-- /optionsPanel -->
+      <!-- Bottom bar -->
+      <div class="bottom-bar" id="bottomBar">
+        <div class="bottom-left" id="bottomLeft">
+          <strong id="fileCountText">Added 0 files</strong>
+        </div>
+        <button class="btn-bottom convert" id="btnConvert" onclick="convertAll()">
+          Convert <span style="font-size:18px;line-height:1">→</span>
+        </button>
+      </div>
 
-    <!-- Actions Bar -->
-    <div id="actions">
-      <button class="btn-convert" id="btnConvert" onclick="convertAll()">⚡ Convert to Markdown</button>
-      <button class="btn-dl-all" id="btnDlAll" onclick="downloadAll()">⬇ Download All</button>
-      <button class="btn-clear" onclick="clearAll()">Clear</button>
-      <span id="statusMsg"></span>
-    </div>
+    </div><!-- /activeArea -->
+  </div><!-- /card -->
+</div><!-- /main -->
 
-  </div>
-</div>
-
-<!-- HOW IT WORKS -->
+<!-- ════════ HOW IT WORKS ════════ -->
 <div class="how-section">
   <h2>How It Works</h2>
   <div class="how-grid">
-    <div class="how-card">
-      <div class="how-num">1</div>
-      <h3>Upload Files</h3>
-      <p>Drop one or more files — PDF, Word, Excel, TXT, or HTML. Mixed batches are fine.</p>
-    </div>
-    <div class="how-card">
-      <div class="how-num">2</div>
-      <h3>Auto-Scan</h3>
-      <p>Files are scanned for issues like repeated headers, hyphenation, and noise. Smart options are suggested automatically.</p>
-    </div>
-    <div class="how-card">
-      <div class="how-num">3</div>
-      <h3>Convert</h3>
-      <p>Everything runs locally in your browser. Nothing is sent to any server.</p>
-    </div>
-    <div class="how-card">
-      <div class="how-num">4</div>
-      <h3>Paste into Claude</h3>
-      <p>Download your <code>.md</code> files and share them with Claude for token-efficient AI conversations.</p>
-    </div>
+    <div class="how-card"><div class="how-num">1</div><h3>Upload Files</h3><p>Drop one or more files — PDF, Word, Excel, TXT, or HTML.</p></div>
+    <div class="how-card"><div class="how-num">2</div><h3>Auto-Scan</h3><p>Files are analyzed for repeated headers, hyphenation, and noise. Options are suggested automatically.</p></div>
+    <div class="how-card"><div class="how-num">3</div><h3>Convert</h3><p>Everything runs locally in your browser — nothing is sent to any server.</p></div>
+    <div class="how-card"><div class="how-num">4</div><h3>Use with Claude</h3><p>Download your <code>.md</code> files and share them with Claude for token-efficient AI conversations.</p></div>
   </div>
 </div>
 
-<!-- FORMAT TABLE -->
+<!-- ════════ FORMAT TABLE ════════ -->
 <div class="formats-section">
   <h2>Supported Formats</h2>
   <table class="fmt-table">
     <thead><tr><th>Format</th><th>Extension</th><th>Engine</th><th>Preserves</th></tr></thead>
     <tbody>
-      <tr><td>PDF Document</td><td>.pdf</td><td>PDF.js (Mozilla)</td><td>Text, page structure, layout flow</td></tr>
+      <tr><td>PDF Document</td><td>.pdf</td><td>PDF.js (Mozilla)</td><td>Text, page structure</td></tr>
       <tr><td>Word Document</td><td>.docx / .doc</td><td>Mammoth.js</td><td>Headings, bold, italic, lists, tables, images</td></tr>
       <tr><td>Excel Spreadsheet</td><td>.xlsx / .xls</td><td>SheetJS</td><td>All sheets, tables, cell values</td></tr>
       <tr><td>Plain Text</td><td>.txt</td><td>Native</td><td>Full content</td></tr>
@@ -381,135 +399,183 @@
   </table>
 </div>
 
+<!-- ════════ FOOTER ════════ -->
 <footer>
   <strong>MD for Claude</strong> — All conversions run locally in your browser. No files leave your machine. Private &amp; secure.
 </footer>
 
+<!-- ════════ SCRIPT ════════ -->
 <script>
-// ══════════════════════════════════════════════════════════
-//  CONFIG
-// ══════════════════════════════════════════════════════════
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-// Live option state — always read from checkboxes
-function getOpts() {
-  return {
-    collapseWs:      cb('opt-collapseWs'),
-    stripUrls:       cb('opt-stripUrls'),
-    capHeadings:     cb('opt-capHeadings'),
-    pageSep:         cb('opt-pageSep'),
-    repeatHdr:       cb('opt-repeatHdr'),
-    hyph:            cb('opt-hyph'),
-    imgPlaceholder:  cb('opt-imgPlaceholder'),
-    skipEmptyRows:   cb('opt-skipEmptyRows'),
-    sheetHeadings:   cb('opt-sheetHeadings'),
-  };
-}
-function cb(id) { const el = document.getElementById(id); return el ? el.checked : false; }
-
-// ══════════════════════════════════════════════════════════
-//  STATE
-// ══════════════════════════════════════════════════════════
-const fileMap = new Map();   // id → { file, ext, status, md }
-let idCounter = 0;
+// ── State ────────────────────────────────────────────────
+const fileMap  = new Map();   // id → { file, ext, status:'ready'|'working'|'done'|'error', md }
 const pendingSugg = new Map(); // optId → { label, reason }
+let idCtr = 0;
+let scanningCount = 0;
 
-// ══════════════════════════════════════════════════════════
-//  DOM
-// ══════════════════════════════════════════════════════════
-const dropzone   = document.getElementById('dropzone');
-const fileInput  = document.getElementById('fileInput');
-const fileList   = document.getElementById('fileList');
-const actions    = document.getElementById('actions');
-const btnConvert = document.getElementById('btnConvert');
-const btnDlAll   = document.getElementById('btnDlAll');
-const statusMsg  = document.getElementById('statusMsg');
+// ── DOM ──────────────────────────────────────────────────
+const dzWrap      = document.getElementById('dzWrap');
+const dropzone    = document.getElementById('dropzone');
+const fileInput   = document.getElementById('fileInput');
+const fileInputMore = document.getElementById('fileInputMore');
+const activeArea  = document.getElementById('activeArea');
+const fileListEl  = document.getElementById('fileList');
+const btnConvert  = document.getElementById('btnConvert');
+const fileCountTx = document.getElementById('fileCountText');
+const scanIndicator = document.getElementById('scanIndicator');
 
-// ══════════════════════════════════════════════════════════
-//  DRAG & DROP
-// ══════════════════════════════════════════════════════════
+const ALLOWED = ['pdf','doc','docx','xls','xlsx','txt','html','htm'];
+
+// ── Drag & Drop ──────────────────────────────────────────
 dropzone.addEventListener('dragover',  e => { e.preventDefault(); dropzone.classList.add('dragover'); });
 dropzone.addEventListener('dragleave', ()  => dropzone.classList.remove('dragover'));
 dropzone.addEventListener('drop', e => {
   e.preventDefault(); dropzone.classList.remove('dragover');
   addFiles(e.dataTransfer.files);
 });
-fileInput.addEventListener('change', () => { addFiles(fileInput.files); fileInput.value = ''; });
+fileInput.addEventListener('change',     () => { addFiles(fileInput.files);     fileInput.value = ''; });
+fileInputMore.addEventListener('change', () => { addFiles(fileInputMore.files); fileInputMore.value = ''; });
 
-// ══════════════════════════════════════════════════════════
-//  ADD FILES
-// ══════════════════════════════════════════════════════════
-const ALLOWED = ['pdf','doc','docx','xls','xlsx','txt','html','htm'];
+// Also allow dropping onto the active area
+activeArea.addEventListener('dragover',  e => { e.preventDefault(); });
+activeArea.addEventListener('drop', e => { e.preventDefault(); addFiles(e.dataTransfer.files); });
 
+// ── Add Files ────────────────────────────────────────────
 function addFiles(files) {
+  let added = 0;
   for (const f of files) {
     const ext = f.name.split('.').pop().toLowerCase();
     if (!ALLOWED.includes(ext)) { alert(`Unsupported format: .${ext}`); continue; }
-    const id = ++idCounter;
+    const id = ++idCtr;
     fileMap.set(id, { file: f, ext, status: 'ready', md: null });
-    renderItem(id);
-    // Kick off background pre-scan
-    preScan(id);
+    renderRow(id);
+    added++;
+    preScan(id); // background — does NOT touch entry.status
+  }
+  if (added > 0) {
+    dzWrap.style.display = 'none';
+    activeArea.style.display = 'block';
+    refresh();
+  }
+}
+
+// ── Render one file row ──────────────────────────────────
+function renderRow(id) {
+  const entry = fileMap.get(id);
+  if (!entry) return;
+  const { file, ext, status, md } = entry;
+
+  const metaMap = {
+    ready:   ['', `${fmtSize(file.size)} · Ready to convert`],
+    working: ['', `${fmtSize(file.size)} · Converting…`],
+    done:    ['done',  `${fmtSize(file.size)} · ✓ Converted`],
+    error:   ['error', `${fmtSize(file.size)} · ✗ Error — try again`],
+  };
+  const [metaCls, metaTxt] = metaMap[status] || metaMap.ready;
+  const progressActive = status === 'working' ? 'active' : (status === 'done' ? 'done' : '');
+
+  const rightContent = (status === 'done' && md)
+    ? `<button class="btn-dl-one" id="dl-${id}" style="display:inline-block" onclick="downloadOne(${id})">⬇ Download .md</button>`
+    : `<div class="output-badge"><span class="out-label">Output:</span> .md</div>`;
+
+  const html = `
+    <div class="file-row" id="fr-${id}">
+      <div class="file-row-inner">
+        <div class="fr-left">
+          <div class="file-ext-badge ext-${ext}">${ext}</div>
+          <div>
+            <div class="fr-name" title="${esc(file.name)}">${esc(file.name)}</div>
+            <div class="fr-meta ${metaCls}">${metaTxt}</div>
+          </div>
+        </div>
+        <div class="fr-right">
+          ${rightContent}
+          <button class="fr-icon-btn" onclick="openOptions()" title="Options">⚙</button>
+          <button class="fr-icon-btn remove" onclick="removeFile(${id})" title="Remove">✕</button>
+        </div>
+      </div>
+      <div class="fr-progress ${progressActive}" id="frp-${id}">
+        <div class="fr-progress-fill"></div>
+      </div>
+    </div>`;
+
+  const existing = document.getElementById(`fr-${id}`);
+  if (existing) existing.outerHTML = html;
+  else fileListEl.insertAdjacentHTML('beforeend', html);
+}
+
+// ── Remove ────────────────────────────────────────────────
+function removeFile(id) {
+  fileMap.delete(id);
+  document.getElementById(`fr-${id}`)?.remove();
+  if (fileMap.size === 0) {
+    activeArea.style.display = 'none';
+    dzWrap.style.display = 'block';
+    pendingSugg.clear();
+    document.getElementById('suggestionsBanner').style.display = 'none';
   }
   refresh();
 }
 
-// ══════════════════════════════════════════════════════════
-//  RENDER FILE ITEM
-// ══════════════════════════════════════════════════════════
-function renderItem(id) {
-  const { file, ext, status, md } = fileMap.get(id);
-  const existing = document.getElementById(`fi-${id}`);
+// ── Refresh bottom bar ────────────────────────────────────
+function refresh() {
+  const total   = fileMap.size;
+  const pending = [...fileMap.values()].filter(v => v.status === 'ready').length;
+  const done    = [...fileMap.values()].filter(v => v.status === 'done').length;
+  const working = [...fileMap.values()].filter(v => v.status === 'working').length;
 
-  const sMap = {
-    ready:   ['status-ready',   'Ready'],
-    scan:    ['status-scan',    '🔍 Scanning…'],
-    working: ['status-working', 'Converting…'],
-    done:    ['status-done',    '✓ Done'],
-    error:   ['status-error',   'Error'],
-  };
-  const [sc, sl] = sMap[status] || sMap.ready;
-  const dlBtn = (status === 'done' && md)
-    ? `<button class="btn-dl" onclick="downloadOne(${id})">⬇ .md</button>` : '';
+  const s = total === 1 ? '' : 's';
+  fileCountTx.textContent = `Added ${total} file${s}`;
 
-  const html = `
-    <div class="file-item" id="fi-${id}">
-      <div class="file-ext ext-${ext}">${ext}</div>
-      <div class="file-info">
-        <div class="file-name" title="${esc(file.name)}">${esc(file.name)}</div>
-        <div class="file-size">${fmtSize(file.size)}</div>
+  if (done === total && total > 0) {
+    // All done — switch to Download All
+    document.getElementById('bottomBar').innerHTML = `
+      <div class="bottom-left">
+        <strong style="color:var(--green)">✓ ${done} file${s} converted</strong>
+        &nbsp;—&nbsp; <a href="#" onclick="resetAll();return false" style="color:var(--indigo);font-size:13px">Convert more</a>
       </div>
-      ${dlBtn}
-      <span class="file-status ${sc}">${sl}</span>
-      <button class="btn-remove" onclick="removeFile(${id})" title="Remove">×</button>
-    </div>`;
+      <button class="btn-bottom download" onclick="downloadAll()">⬇ Download All</button>`;
+  } else {
+    btnConvert.disabled = (pending === 0 && working === 0);
+    fileCountTx.textContent = working > 0
+      ? `Converting ${working} of ${total} file${s}…`
+      : `Added ${total} file${s}${pending < total ? ` · ${done} done` : ''}`;
+  }
+}
 
-  if (existing) existing.outerHTML = html;
-  else fileList.insertAdjacentHTML('beforeend', html);
+// ── Reset to initial state ────────────────────────────────
+function resetAll() {
+  fileMap.clear();
+  fileListEl.innerHTML = '';
+  pendingSugg.clear();
+  document.getElementById('suggestionsBanner').style.display = 'none';
+  document.getElementById('optionsPanel').style.display = 'none';
+  activeArea.style.display = 'none';
+  dzWrap.style.display = 'block';
 }
 
 // ══════════════════════════════════════════════════════════
-//  PRE-SCAN  (runs after file added, before Convert)
+//  PRE-SCAN (background, never changes entry.status)
 // ══════════════════════════════════════════════════════════
 async function preScan(id) {
+  scanningCount++;
+  if (scanningCount === 1) scanIndicator.style.display = 'block';
+
   const entry = fileMap.get(id);
-  if (!entry) return;
-  entry.status = 'scan';
-  renderItem(id);
+  if (!entry) { finishScan(); return; }
+  const { file, ext } = entry;
 
   try {
-    const { file, ext } = entry;
-
     if (ext === 'pdf') {
+      document.getElementById('grpPdf').style.display = '';
       const slice = file.slice(0, Math.min(file.size, 800000));
-      const buf = await slice.arrayBuffer();
-      let pdf;
-      try { pdf = await pdfjsLib.getDocument({ data: buf }).promise; } catch(e) { throw e; }
-
-      const n = Math.min(pdf.numPages, 8);
+      const buf   = await slice.arrayBuffer();
+      const pdf   = await pdfjsLib.getDocument({ data: buf }).promise;
+      const n     = Math.min(pdf.numPages, 8);
       const firstLines = [], lastLines = [];
-      let hyphenCount = 0, urlCount = 0, blankSeqs = 0;
+      let hyphenCount = 0, urlCount = 0;
 
       for (let p = 1; p <= n; p++) {
         const page = await pdf.getPage(p);
@@ -524,184 +590,164 @@ async function preScan(id) {
         if (lines.length > 1) lastLines.push(lines[lines.length - 1]);
         hyphenCount += (text.match(/[a-z]-\n[a-z]/g) || []).length;
         urlCount    += (text.match(/https?:\/\//g) || []).length;
-        blankSeqs   += (text.match(/\n{3,}/g) || []).length;
       }
 
-      // Repeated headers/footers: same text in ≥40% of scanned pages
-      const check = (arr) => {
+      const hasRepeat = arr => {
         const freq = {};
         arr.forEach(l => { if (l.length > 4) freq[l] = (freq[l]||0)+1; });
         return Object.values(freq).some(c => c >= Math.max(2, arr.length * 0.4));
       };
-      if (check(firstLines) || check(lastLines)) {
+      if (hasRepeat(firstLines) || hasRepeat(lastLines))
         addSugg('opt-repeatHdr', 'Remove repeated headers/footers',
-          `Repeated page header or footer detected in ${file.name}`, 'badge-repeatHdr');
-      }
-      if (hyphenCount >= 3) {
+          `Repeated text detected at top/bottom of pages in ${file.name}`, 'badge-repeatHdr');
+      if (hyphenCount >= 3)
         addSugg('opt-hyph', 'Fix word hyphenation',
           `${hyphenCount} hyphenated line-breaks found in ${file.name}`, 'badge-hyph');
-      }
-      if (urlCount >= 5) {
+      if (urlCount >= 5)
         addSugg('opt-stripUrls', 'Replace URLs with [link]',
-          `${urlCount} URLs detected in ${file.name} — they waste tokens`);
-      }
-      if (n >= 4) {
+          `${urlCount} URLs detected — they consume extra tokens`, 'badge-stripUrls');
+      if (n >= 4)
         addSugg('opt-pageSep', 'Remove page separators',
-          `${pdf.numPages}-page document — "## Page N" dividers add noise`);
-      }
-      // Show PDF group
-      document.getElementById('grpPdf').style.display = '';
+          `${pdf.numPages}-page document — page number dividers add noise`, 'badge-pageSep');
 
     } else if (ext === 'docx' || ext === 'doc') {
       document.getElementById('grpDocx').style.display = '';
 
     } else if (ext === 'xlsx' || ext === 'xls') {
       document.getElementById('grpXls').style.display = '';
-      // Check for empty rows
-      const buf = await file.arrayBuffer();
-      const wb  = XLSX.read(buf, { type: 'array' });
-      let emptyFound = false;
+      const buf  = await file.arrayBuffer();
+      const wb   = XLSX.read(buf, { type:'array' });
+      let hasEmpty = false;
       outer: for (const sn of wb.SheetNames) {
-        const data = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header:1, defval:'' });
-        for (const row of data) {
-          if (row.every(c => String(c).trim() === '')) { emptyFound = true; break outer; }
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header:1, defval:'' });
+        for (const row of rows) {
+          if (row.every(c => String(c).trim() === '')) { hasEmpty = true; break outer; }
         }
       }
-      if (emptyFound) {
+      if (hasEmpty)
         addSugg('opt-skipEmptyRows', 'Skip empty rows',
-          `Blank rows found in ${file.name} — skipping them keeps tables clean`);
-      }
+          `Blank rows found in ${file.name} — skipping keeps tables clean`);
 
     } else if (ext === 'html' || ext === 'htm') {
-      const text = await file.text();
-      const deepHdg  = (text.match(/<h[456]/gi) || []).length;
-      const urlCount = (text.match(/https?:\/\//g) || []).length;
-      if (deepHdg  >= 2) addSugg('opt-capHeadings', 'Cap heading depth at H3',
-        `Deep headings (H4/H5/H6) found in ${file.name}`);
-      if (urlCount >= 8) addSugg('opt-stripUrls', 'Replace URLs with [link]',
-        `${urlCount} URLs in ${file.name} — replacing saves tokens`);
+      const text   = await file.text();
+      const deep   = (text.match(/<h[456]/gi) || []).length;
+      const urls   = (text.match(/https?:\/\//g) || []).length;
+      if (deep >= 2)
+        addSugg('opt-capHeadings', 'Cap heading depth at H3',
+          `Deep headings (H4/H5/H6) found in ${file.name}`, 'badge-capHeadings');
+      if (urls >= 8)
+        addSugg('opt-stripUrls', 'Replace URLs with [link]',
+          `${urls} URLs in ${file.name} — replacing saves tokens`, 'badge-stripUrls');
     }
-
   } catch(e) { /* silent */ }
 
-  entry.status = 'ready';
-  renderItem(id);
-  renderSuggestions();
+  finishScan();
 }
 
-// ══════════════════════════════════════════════════════════
-//  SUGGESTIONS
-// ══════════════════════════════════════════════════════════
+function finishScan() {
+  scanningCount = Math.max(0, scanningCount - 1);
+  if (scanningCount === 0) {
+    scanIndicator.style.display = 'none';
+    renderSuggestions();
+  }
+}
+
+// ── Suggestions ───────────────────────────────────────────
 function addSugg(optId, label, reason, badgeId) {
-  if (pendingSugg.has(optId)) return; // dedup
+  if (pendingSugg.has(optId)) return;
   pendingSugg.set(optId, { label, reason });
   if (badgeId) { const b = document.getElementById(badgeId); if (b) b.style.display = ''; }
+  document.getElementById('optionsPanel').style.display = '';
 }
 
 function renderSuggestions() {
-  const banner = document.getElementById('suggestionsBanner');
-  const list   = document.getElementById('sugList');
-
-  // Filter out already-enabled options
-  const active = [...pendingSugg.entries()].filter(([id]) => !cb(id));
+  const banner  = document.getElementById('suggestionsBanner');
+  const listEl  = document.getElementById('sugList');
+  const active  = [...pendingSugg.entries()].filter(([id]) => {
+    const el = document.getElementById(id); return el && !el.checked;
+  });
   if (active.length === 0) { banner.style.display = 'none'; return; }
-
-  list.innerHTML = active.map(([id, {label, reason}]) => `
+  listEl.innerHTML = active.map(([, {label, reason}]) => `
     <li class="sug-item">
-      <span class="sug-item-tag">${label}</span>
-      <span style="color:var(--muted)">${esc(reason)}</span>
+      <span class="sug-tag">${esc(label)}</span>
+      <span>${esc(reason)}</span>
     </li>`).join('');
-
   banner.style.display = '';
-  document.getElementById('optionsPanel').style.display = '';
 }
 
 function applyAllSuggestions() {
   for (const [optId] of pendingSugg) {
-    const el = document.getElementById(optId);
-    if (el) el.checked = true;
+    const el = document.getElementById(optId); if (el) el.checked = true;
   }
-  syncOpts();
-  dismissSuggestions();
-  openOptions();
+  syncOpts(); dismissSuggestions();
 }
+function dismissSuggestions() { document.getElementById('suggestionsBanner').style.display = 'none'; }
 
-function dismissSuggestions() {
-  document.getElementById('suggestionsBanner').style.display = 'none';
-}
-
-// ══════════════════════════════════════════════════════════
-//  OPTIONS PANEL
-// ══════════════════════════════════════════════════════════
+// ── Options panel ─────────────────────────────────────────
 function toggleOptions() {
   const body  = document.getElementById('optsBody');
   const arrow = document.getElementById('optsArrow');
   const open  = body.classList.toggle('open');
   arrow.classList.toggle('open', open);
 }
-
 function openOptions() {
   document.getElementById('optionsPanel').style.display = '';
   document.getElementById('optsBody').classList.add('open');
   document.getElementById('optsArrow').classList.add('open');
   document.getElementById('optionsPanel').scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
-
 function syncOpts() {
-  // Update active count badge
-  const keys = ['opt-collapseWs','opt-stripUrls','opt-capHeadings','opt-pageSep',
-                 'opt-repeatHdr','opt-hyph','opt-imgPlaceholder','opt-skipEmptyRows','opt-sheetHeadings'];
-  const count = keys.filter(id => cb(id)).length;
+  const ids = ['opt-collapseWs','opt-stripUrls','opt-capHeadings','opt-pageSep',
+               'opt-repeatHdr','opt-hyph','opt-imgPlaceholder','opt-skipEmptyRows','opt-sheetHeadings'];
+  const n = ids.filter(id => { const el=document.getElementById(id); return el&&el.checked; }).length;
   const badge = document.getElementById('activeCount');
-  badge.textContent = count;
-  badge.style.display = count > 0 ? '' : 'none';
-  // Refresh suggestion banner (some options may now be enabled)
+  badge.textContent = n; badge.style.display = n > 0 ? '' : 'none';
   renderSuggestions();
+}
+function getOpts() {
+  const cb = id => { const el=document.getElementById(id); return el?el.checked:false; };
+  return { collapseWs:cb('opt-collapseWs'), stripUrls:cb('opt-stripUrls'),
+           capHeadings:cb('opt-capHeadings'), pageSep:cb('opt-pageSep'),
+           repeatHdr:cb('opt-repeatHdr'), hyph:cb('opt-hyph'),
+           imgPlaceholder:cb('opt-imgPlaceholder'), skipEmptyRows:cb('opt-skipEmptyRows'),
+           sheetHeadings:cb('opt-sheetHeadings') };
 }
 
 // ══════════════════════════════════════════════════════════
-//  CONVERT ALL
+//  CONVERT
 // ══════════════════════════════════════════════════════════
 async function convertAll() {
   btnConvert.disabled = true;
   for (const [id, entry] of fileMap) {
     if (entry.status !== 'ready') continue;
-    entry.status = 'working'; renderItem(id);
+    entry.status = 'working'; renderRow(id); refresh();
     try {
       entry.md = await convertFile(entry.file, entry.ext);
       entry.status = 'done';
     } catch(e) {
-      console.error(e);
-      entry.md = null; entry.status = 'error';
+      console.error(e); entry.status = 'error'; entry.md = null;
     }
-    renderItem(id);
+    renderRow(id); refresh();
   }
-  refresh();
 }
 
 async function convertFile(file, ext) {
-  if (ext === 'pdf')                return convertPDF(file);
-  if (ext === 'docx' || ext==='doc') return convertDOCX(file);
-  if (ext === 'xlsx' || ext==='xls') return convertXLS(file);
-  if (ext === 'txt')                return convertTXT(file);
-  if (ext === 'html' || ext==='htm') return convertHTML(file);
+  if (ext === 'pdf')                  return convertPDF(file);
+  if (ext === 'docx' || ext === 'doc') return convertDOCX(file);
+  if (ext === 'xlsx' || ext === 'xls') return convertXLS(file);
+  if (ext === 'txt')                  return convertTXT(file);
+  if (ext === 'html' || ext === 'htm') return convertHTML(file);
   throw new Error('Unsupported');
 }
 
-// ══════════════════════════════════════════════════════════
-//  POST-PROCESS  (common — applied after each converter)
-// ══════════════════════════════════════════════════════════
-function postProcess(md) {
+// Post-process applied to every converter output
+function post(md) {
   const o = getOpts();
-  if (o.capHeadings)  md = md.replace(/^#{4,}/gm, '###');
-  if (o.stripUrls)    md = md.replace(/https?:\/\/[^\s\)\]\>"']+/g, '[link]');
-  if (o.collapseWs)   md = md.replace(/\n{3,}/g, '\n\n');
+  if (o.capHeadings) md = md.replace(/^#{4,}/gm, '###');
+  if (o.stripUrls)   md = md.replace(/https?:\/\/[^\s\)\]\>"']+/g, '[link]');
+  if (o.collapseWs)  md = md.replace(/\n{3,}/g, '\n\n');
   return md.trim() + '\n';
 }
-
-// ══════════════════════════════════════════════════════════
-//  CONVERTERS
-// ══════════════════════════════════════════════════════════
 
 /* ── PDF ── */
 async function convertPDF(file) {
@@ -710,7 +756,7 @@ async function convertPDF(file) {
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
   const name = file.name.replace(/\.pdf$/i, '');
 
-  // First pass: collect all page texts
+  // Collect all page texts
   const pages = [];
   for (let p = 1; p <= pdf.numPages; p++) {
     const page = await pdf.getPage(p);
@@ -723,119 +769,87 @@ async function convertPDF(file) {
     pages.push(text.trim());
   }
 
-  // Detect repeated lines for header/footer removal
+  // Identify repeated header/footer lines
   let repeated = new Set();
   if (o.repeatHdr && pages.length >= 3) {
     const threshold = Math.max(2, Math.ceil(pages.length * 0.4));
     const freq = {};
-    for (const pageText of pages) {
-      const lines = pageText.split('\n').map(l => l.trim()).filter(l => l.length > 4);
-      const candidates = [...lines.slice(0, 2), ...lines.slice(-2)];
-      for (const l of candidates) freq[l] = (freq[l] || 0) + 1;
+    for (const pg of pages) {
+      const lines = pg.split('\n').map(l => l.trim()).filter(l => l.length > 4);
+      [...lines.slice(0,2), ...lines.slice(-2)].forEach(l => freq[l] = (freq[l]||0)+1);
     }
-    for (const [line, count] of Object.entries(freq)) {
-      if (count >= threshold) repeated.add(line);
-    }
+    for (const [l, c] of Object.entries(freq)) if (c >= threshold) repeated.add(l);
   }
 
   let md = `# ${name}\n\n`;
   for (let i = 0; i < pages.length; i++) {
     let text = pages[i];
     if (!text) continue;
-
-    if (repeated.size > 0) {
-      text = text.split('\n')
-        .filter(l => !repeated.has(l.trim()))
-        .join('\n');
-    }
-    if (o.hyph)    text = text.replace(/([a-z])-\n([a-z])/g, '$1$2');
+    if (repeated.size > 0)
+      text = text.split('\n').filter(l => !repeated.has(l.trim())).join('\n');
+    if (o.hyph) text = text.replace(/([a-z])-\n([a-z])/g, '$1$2');
     text = text.trim();
     if (!text) continue;
-
     if (!o.pageSep) md += `## Page ${i + 1}\n\n`;
     md += text + '\n\n';
   }
-  return postProcess(md);
+  return post(md);
 }
 
 /* ── DOCX ── */
 async function convertDOCX(file) {
   const o   = getOpts();
   const buf = await file.arrayBuffer();
-
-  const mammothOpts = { arrayBuffer: buf };
+  const opts = { arrayBuffer: buf };
   if (o.imgPlaceholder) {
-    mammothOpts.convertImage = async (image) => {
-      const alt = (image.altText || 'Image').trim();
-      return { src: 'img-placeholder', alt: alt || 'Image' };
-    };
+    opts.convertImage = async img => ({ src:'placeholder', alt: img.altText || 'Image' });
   }
-
-  const result = await mammoth.convertToHtml(mammothOpts);
+  const result = await mammoth.convertToHtml(opts);
   const td = new TurndownService({ headingStyle:'atx', codeBlockStyle:'fenced', bulletListMarker:'-' });
-
   if (o.imgPlaceholder) {
-    td.addRule('img-placeholders', {
-      filter: node => node.nodeName === 'IMG',
-      replacement: (_, node) => {
-        const alt = node.getAttribute('alt') || 'Image';
-        return `\n\n[Image: ${alt}]\n\n`;
-      }
+    td.addRule('imgs', {
+      filter: 'img',
+      replacement: (_, node) => `\n\n[Image: ${node.getAttribute('alt') || 'Image'}]\n\n`
     });
   }
-
-  td.addRule('strikethrough', { filter:['del','s'], replacement: c => `~~${c}~~` });
-  return postProcess(td.turndown(result.value));
+  td.addRule('del', { filter:['del','s'], replacement: c => `~~${c}~~` });
+  return post(td.turndown(result.value));
 }
 
 /* ── XLS / XLSX ── */
 async function convertXLS(file) {
-  const o  = getOpts();
+  const o   = getOpts();
   const buf = await file.arrayBuffer();
   const wb  = XLSX.read(buf, { type:'array' });
   const name = file.name.replace(/\.(xlsx?)$/i, '');
   let md = `# ${name}\n\n`;
-
-  for (const sheetName of wb.SheetNames) {
-    const ws   = wb.Sheets[sheetName];
-    let data = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
-
-    if (o.skipEmptyRows) {
-      data = data.filter(row => row.some(c => String(c).trim() !== ''));
-    }
-    if (!data.length) continue;
-
-    if (o.sheetHeadings) md += `## ${sheetName}\n\n`;
-
-    const cols = data.reduce((m, r) => Math.max(m, r.length), 0);
-    if (cols === 0) continue;
-
-    const cell = (row, i) => String(row[i] ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
-    const header = data[0];
-
-    md += '| ' + Array.from({length:cols}, (_,i) => cell(header, i) || `Col${i+1}`).join(' | ') + ' |\n';
-    md += '| ' + Array.from({length:cols}, () => '---').join(' | ') + ' |\n';
-    for (let r = 1; r < data.length; r++) {
-      md += '| ' + Array.from({length:cols}, (_,i) => cell(data[r], i)).join(' | ') + ' |\n';
-    }
+  for (const sn of wb.SheetNames) {
+    let rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header:1, defval:'' });
+    if (o.skipEmptyRows) rows = rows.filter(r => r.some(c => String(c).trim()));
+    if (!rows.length) continue;
+    if (o.sheetHeadings) md += `## ${sn}\n\n`;
+    const cols = rows.reduce((m, r) => Math.max(m, r.length), 0);
+    if (!cols) continue;
+    const cell = (r, i) => String(r[i]??'').replace(/\|/g,'\\|').replace(/\n/g,' ');
+    md += '| ' + Array.from({length:cols},(_,i) => cell(rows[0],i)||`Col${i+1}`).join(' | ') + ' |\n';
+    md += '| ' + Array.from({length:cols},()=>'---').join(' | ') + ' |\n';
+    for (let r = 1; r < rows.length; r++)
+      md += '| ' + Array.from({length:cols},(_,i) => cell(rows[r],i)).join(' | ') + ' |\n';
     md += '\n';
   }
-  return postProcess(md);
+  return post(md);
 }
 
 /* ── TXT ── */
 async function convertTXT(file) {
-  const text = await file.text();
-  const name = file.name.replace(/\.txt$/i, '');
-  return postProcess(`# ${name}\n\n${text}`);
+  return post(`# ${file.name.replace(/\.txt$/i,'')}\n\n${await file.text()}`);
 }
 
 /* ── HTML ── */
 async function convertHTML(file) {
-  const html = await file.text();
   const td = new TurndownService({ headingStyle:'atx', codeBlockStyle:'fenced', bulletListMarker:'-' });
   td.remove(['script','style','nav','footer','aside','noscript']);
-  return postProcess(td.turndown(html));
+  return post(td.turndown(await file.text()));
 }
 
 // ══════════════════════════════════════════════════════════
@@ -844,85 +858,48 @@ async function convertHTML(file) {
 function downloadOne(id) {
   const { file, md } = fileMap.get(id);
   if (!md) return;
-  blob2dl(new Blob([md], { type:'text/markdown;charset=utf-8' }),
-          file.name.replace(/\.[^.]+$/, '') + '.md');
+  dl(new Blob([md],{type:'text/markdown;charset=utf-8'}), file.name.replace(/\.[^.]+$/,'')+'.md');
 }
 
 async function downloadAll() {
   try {
     const JSZip = await loadJSZip();
     const zip = new JSZip();
-    for (const [, { file, md }] of fileMap) {
-      if (md) zip.file(file.name.replace(/\.[^.]+$/, '') + '.md', md);
+    for (const [, {file, md}] of fileMap) {
+      if (md) zip.file(file.name.replace(/\.[^.]+$/,'')+'.md', md);
     }
-    blob2dl(await zip.generateAsync({ type:'blob' }), 'md-for-claude.zip');
+    dl(await zip.generateAsync({type:'blob'}), 'md-for-claude.zip');
   } catch(e) {
     let merged = '';
-    for (const [, { file, md }] of fileMap) {
-      if (md) merged += `\n\n---\n\n<!-- Source: ${file.name} -->\n\n${md}`;
-    }
-    blob2dl(new Blob([merged.trim()], { type:'text/markdown;charset=utf-8' }), 'md-for-claude.md');
+    for (const [,{file,md}] of fileMap) if (md) merged += `\n\n---\n\n<!-- ${file.name} -->\n\n${md}`;
+    dl(new Blob([merged.trim()],{type:'text/markdown;charset=utf-8'}), 'md-for-claude.md');
   }
 }
 
 function loadJSZip() {
-  return new Promise((resolve, reject) => {
-    if (window.JSZip) return resolve(window.JSZip);
+  return new Promise((res, rej) => {
+    if (window.JSZip) return res(window.JSZip);
     const s = document.createElement('script');
     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-    s.onload = () => resolve(window.JSZip);
-    s.onerror = reject;
+    s.onload = () => res(window.JSZip); s.onerror = rej;
     document.head.appendChild(s);
   });
 }
 
-function blob2dl(blob, name) {
+function dl(blob, name) {
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  a.click();
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 }
 
-// ══════════════════════════════════════════════════════════
-//  UI HELPERS
-// ══════════════════════════════════════════════════════════
-function removeFile(id) {
-  fileMap.delete(id);
-  document.getElementById(`fi-${id}`)?.remove();
-  refresh();
-}
-
-function clearAll() {
-  fileMap.clear();
-  fileList.innerHTML = '';
-  pendingSugg.clear();
-  document.getElementById('suggestionsBanner').style.display = 'none';
-  refresh();
-}
-
-function refresh() {
-  const count = fileMap.size;
-  actions.style.display = count > 0 ? 'flex' : 'none';
-  if (count === 0) {
-    document.getElementById('optionsPanel').style.display = 'none';
-    return;
-  }
-  document.getElementById('optionsPanel').style.display = '';
-  const allDone  = [...fileMap.values()].every(f => f.status === 'done');
-  const pending  = [...fileMap.values()].filter(f => f.status === 'ready').length;
-  btnDlAll.style.display  = (allDone && count > 1) ? 'inline-block' : 'none';
-  btnConvert.disabled = pending === 0;
-  statusMsg.textContent = `${count} file${count>1?'s':''} · ${pending} pending`;
-}
-
+// ── Utils ─────────────────────────────────────────────────
 function fmtSize(b) {
   if (b < 1024) return b + ' B';
   if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
   return (b/1048576).toFixed(1) + ' MB';
 }
 function esc(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 </script>
 </body>
